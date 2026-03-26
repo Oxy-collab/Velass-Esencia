@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velass&Esencia - Panel Admin</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body class="admin-page">
+    <header class="navbar">
+        <button id="theme-toggle" class="theme-btn" title="Alternar Modo Oscuro">
+            <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2"
+                fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+        </button>
+        <div class="logo-container">
+            <img src="https://cdn.phototourl.com/free/2026-03-25-86eb837e-6f5a-4227-a92e-9e78d32f9aa2.png"
+                alt="Velass&Esencia Logo" class="logo-img">
+        </div>
+        <nav>
+            <a href="index.html">Catálogo</a>
+            <a href="#" id="nav-logout">Cerrar Sesión</a>
+        </nav>
+    </header>
+
+    <main class="admin-container">
+        <section class="dashboard">
+            <h2>Contabilidad y Resumen</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Ventas Totales</h3>
+                    <p class="stat-value">$1,240.00</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pedidos Pendientes</h3>
+                    <p class="stat-value">14</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Productos en Inventario</h3>
+                    <p class="stat-value" id="inventory-count">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Usuarios Registrados</h3>
+                    <p class="stat-value" id="users-count">0</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="inventory">
+            <div class="inventory-header">
+                <h2>Control de Inventario</h2>
+                <button class="btn secondary-btn" id="btn-add-product">+ Añadir Producto</button>
+            </div>
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-list">
+                    <!-- Inventory items -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <!-- Modal for Add/Edit Product -->
+    <div class="modal-overlay" id="product-modal">
+        <div class="modal-card">
+            <h3 id="modal-title">Añadir Producto</h3>
+            <form id="product-form">
+                <input type="hidden" id="prod-id">
+                <div class="form-group">
+                    <label>Nombre del Producto</label>
+                    <input type="text" id="prod-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select id="prod-category" required>
+                        <option value="Linea Boom">Linea Boom</option>
+                        <option value="Mini Scents">Mini Scents</option>
+                        <option value="Terrario">Terrario</option>
+                        <option value="Linea Pet soul">Linea Pet soul</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea id="prod-desc" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Precio ($)</label>
+                    <input type="number" id="prod-price" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Stock</label>
+                    <input type="number" id="prod-stock" required>
+                </div>
+                <div class="form-group">
+                    <label>URL de Imagen</label>
+                    <input type="text" id="prod-img" placeholder="ej. https://images.unsplash.com/photo-xxx">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn text-btn" id="btn-cancel-modal">Cancelar</button>
+                    <button type="submit" class="btn primary-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Restrict page access briefly
+        setTimeout(() => {
+            if (!AdminSystem.isAdmin()) {
+                alert('Acceso denegado. Redirigiendo al inicio...');
+                window.location.href = 'index.html';
+            }
+        }, 100);
+    </script>
+</body>
+
+</html>
