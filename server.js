@@ -49,7 +49,7 @@ async function initDatabase() {
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            category TEXT DEFAULT 'Linea Boom',
+            category TEXT DEFAULT 'Linea Bloom',
             description TEXT,
             price REAL NOT NULL,
             stock INTEGER DEFAULT 0,
