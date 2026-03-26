@@ -68,8 +68,8 @@ async function initDatabase() {
     const productCount = db.exec('SELECT COUNT(*) as count FROM products');
     if (productCount[0].values[0][0] === 0) {
         const products = [
-            ['Bloom mediana', 'Linea Boom', 'Vela en envase de vidrio con acabado floral decorativo.', 16000, 50, ''],
-            ['Bloom grande', 'Linea Boom', 'Versión con mayor duración.', 24000, 30, ''],
+            ['Bloom mediana', 'Linea Bloom', 'Vela en envase de vidrio con acabado floral decorativo.', 16000, 50, ''],
+            ['Bloom grande', 'Linea Bloom', 'Versión con mayor duración.', 24000, 30, ''],
             ['Set Corazón', 'Mini Scents', '2 velas medianas.', 15000, 40, ''],
             ['Set Rosas', 'Mini Scents', '4 velas pequeñas. Perfectas para elegir tu aroma favorito.', 18000, 40, ''],
             ['Terrario', 'Terrario', 'Decorada con estilo natural (tipo cactus o jardín). Perfecta como pieza decorativa.', 30000, 20, ''],
