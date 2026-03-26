@@ -104,12 +104,19 @@ app.put('/api/products/:id', (req, res) => {
     );
 });
 
-app.delete('/api/products/:id', (req, res) => {
-    const { id } = req.params;
-    db.run('DELETE FROM products WHERE id=?', [id], function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: 'Producto eliminado' });
-    });
+app.post('/api/products', (req, res) => {
+    const { name, category, description, price, stock, img } = req.body;
+    db.run(
+        'INSERT INTO products (name, category, description, price, stock, img) VALUES (?, ?, ?, ?, ?, ?)',
+        [name, category, description, price, stock, img || ''],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            db.get('SELECT * FROM products WHERE id = ?', [this.lastID], (err, product) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.status(201).json(product);
+            });
+        }
+    );
 });
 
 // --- API: USERS ---
