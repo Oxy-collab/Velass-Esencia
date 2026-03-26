@@ -54,7 +54,7 @@ db.serialize(() => {
         'Bloom grande',
         'Línea Bloom',
         'Versión con mayor duración.',
-        24000,
+        25000,
         30,
         "https://image2url.com/r2/default/images/1774500136789-712ec0b7-e753-4547-9123-44a42a27b881.png"
     ],
