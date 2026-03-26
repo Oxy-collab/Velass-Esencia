@@ -41,18 +41,68 @@ db.serialize(() => {
     // Seed productos si está vacío
     db.get('SELECT COUNT(*) as count FROM products', (err, row) => {
         if (row.count === 0) {
-            const products = [
-                ['Bloom mediana', 'línea Bloom', 'Vela en envase de vidrio con acabado floral decorativo.', 16000, 50, ''],
-                ['Bloom grande', 'línea Bloom', 'Versión con mayor duración.', 24000, 30, ''],
-                ['Set Corazón', 'Mini Scents', '2 velas medianas.', 15000, 40, ''],
-                ['Set Rosas', 'Mini Scents', '4 velas pequeñas.', 18000, 40, ''],
-                ['Terrario', 'Terrario', 'Decorada con estilo natural.', 30000, 20, ''],
-                ['Mascota personalizada', 'Linea Pet soul', 'Convierte a tu mascota en un recuerdo único.', 32000, 15, ''],
-                ['Mascota en base de barro', 'Linea Pet soul', 'Incluye base decorativa.', 40000, 10, '']
-            ];
-            products.forEach(p => {
-                db.run("INSERT INTO products (name, category, description, price, stock, img) VALUES (?, ?, ?, ?, ?, ?)", p);
-            });
+           const products = [
+    [
+        'Bloom mediana',
+        'Línea Bloom',
+        'Vela en envase de vidrio con acabado floral decorativo.',
+        16000,
+        50,
+        "https://image2url.com/r2/default/images/1774500184090-f4e22a54-d1e1-4127-b289-8504aa0c7e0f.png"
+    ],
+    [
+        'Bloom grande',
+        'Línea Bloom',
+        'Versión con mayor duración.',
+        24000,
+        30,
+        "https://image2url.com/r2/default/images/1774500136789-712ec0b7-e753-4547-9123-44a42a27b881.png"
+    ],
+    [
+        'Set Corazón',
+        'Mini Scents',
+        '2 velas medianas.',
+        15000,
+        40,
+        "https://image2url.com/r2/default/images/1774539969550-b67adcd9-110f-410c-8837-cbedca573d74.png"
+    ],
+    [
+        'Set Rosas',
+        'Mini Scents',
+        '4 velas pequeñas. Perfectas para elegir tu aroma favorito.',
+        18000,
+        40,
+        "https://image2url.com/r2/default/images/1774540024937-11d17a21-55a1-4590-914a-be3dc3fe7a04.png"
+    ],
+    [
+        'Terrario',
+        'Terrario',
+        'Decorada con estilo natural (tipo cactus o jardín). Perfecta como pieza decorativa.',
+        30000,
+        20,
+        "https://image2url.com/r2/default/images/1774456169936-048cc335-e743-44f8-bd9b-7a5895f7a59f.png"
+    ],
+    [
+        'Mascota personalizada',
+        'Linea Pet soul',
+        'Convierte a tu mascota en un recuerdo único.',
+        32000,
+        15,
+        "https://image2url.com/r2/default/images/1774456213828-a2b210eb-a703-4641-b1f0-5002154caa8c.png"
+    ],
+    [
+        'Mascota en base de barro',
+        'Linea Pet soul',
+        'Incluye base decorativa.',
+        40000,
+        10,
+        "https://image2url.com/r2/default/images/1774456258303-f585d637-ac43-4298-bb7b-5ddef781e81b.png"
+    ]
+];
+
+products.forEach(p => {
+    db.run("INSERT INTO products (name, category, description, price, stock, img) VALUES (?, ?, ?, ?, ?, ?)", p);
+});
         }
     });
 });
