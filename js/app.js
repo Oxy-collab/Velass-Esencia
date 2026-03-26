@@ -122,16 +122,17 @@ const CatalogSystem = {
                 const imgUrl = p.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente';
 
                 card.innerHTML = `
-                    <div class="product-img" style="background-image: url('${imgUrl}')"></div>
-                    <div class="product-info">
-                        <h3 class="product-title">${p.name}</h3>
-                        <p class="product-desc">${p.description}</p>
-                        <div class="product-footer">
-                            <span class="product-price">${formatter.format(p.price)}</span>
-                            <button class="btn secondary-btn" onclick="CatalogSystem.buyProduct('${p.name.replace(/'/g, "\\'")}')">Pedir</button>
-                        </div>
-                    </div>
-                `;
+            <div class="product-img" style="background-image: url('${imgUrl}')"></div>
+            <div class="product-info">
+            <h3 class="product-title">${p.name}</h3>
+            <p class="product-desc">${p.description}</p>
+            <div class="product-footer">
+            <span class="product-price">${formatter.format(p.price)}</span>
+            </div>
+            </div>
+            `;
+// click para abrir el detalle
+            card.addEventListener('click', ()=>openProductDetail(p));
                 grid.appendChild(card);
             });
             section.appendChild(grid);
@@ -474,4 +475,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     AuthSystem.init();
     await AdminSystem.init();
     AnimationSystem.init();
+});
+// --- Vista Detallada de Producto ---
+function openProductDetail(product) {
+    const modal = document.getElementById('product-detail-modal');
+    const content = document.getElementById('product-detail-inner');
+    if (!modal || !content) return;
+    content.innerHTML = `
+        <img src="${product.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente'}" alt="${product.name}">
+        <h2 style="margin-top:0">${product.name}</h2>
+        <p><strong>Categoría:</strong> ${product.category}</p>
+        <p><strong>Descripción:</strong> ${product.description}</p>
+        <p><strong>Precio:</strong> ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(product.price)}</p>
+        <button class="btn primary-btn" onclick="CatalogSystem.buyProduct('${product.name.replace(/'/g,'\\\\\'')}')">Pedir por WhatsApp/IG</button>
+    `;
+    modal.classList.add('active');
+}
+
+// Cerrar modal
+document.addEventListener('DOMContentLoaded', ()=>{
+    const m = document.getElementById('product-detail-modal');
+    if (m) {
+        m.addEventListener('click', e=>{
+            if (e.target === m || e.target.id === 'close-detail-modal') m.classList.remove('active');
+        });
+    }
 });
