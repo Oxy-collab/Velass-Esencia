@@ -5,6 +5,18 @@
 
 const API_BASE = '';  // Same origin, no prefix needed
 
+// Normalize categories (map variants to canonical labels)
+function normalizeCategory(cat) {
+    if (!cat) return 'Línea Bloom';
+    const c = String(cat).trim();
+    const lower = c.toLowerCase();
+    // Match common typos and variants
+    if (lower.includes('bloom') || lower.includes('boom') || lower.includes('línea bloom') || lower.includes('linea bloom') || lower.includes('linea boom')) {
+        return 'Línea Bloom';
+    }
+    return c;
+}
+
 // Core System
 const AppSystem = {
     async init() {
@@ -77,14 +89,14 @@ const CatalogSystem = {
         const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
         const grouped = products.reduce((acc, p) => {
-            const cat = p.category || 'Linea Boom';
+            const cat = normalizeCategory(p.category || '');
             if (!acc[cat]) acc[cat] = [];
             acc[cat].push(p);
             return acc;
         }, {});
 
-        // Maintain category order
-        const categoryOrder = ['Linea Boom', 'Mini Scents', 'Terrario', 'Linea Pet soul'];
+        // Maintain category order (use canonical name)
+        const categoryOrder = ['Línea Bloom', 'Mini Scents', 'Terrario', 'Linea Pet soul'];
         const sortedCategories = Object.keys(grouped).sort((a, b) => {
             const ia = categoryOrder.indexOf(a);
             const ib = categoryOrder.indexOf(b);
@@ -315,11 +327,14 @@ const AdminSystem = {
     async saveProduct() {
         const idInput = document.getElementById('prod-id').value;
         const name = document.getElementById('prod-name').value;
-        const category = document.getElementById('prod-category').value;
+        let category = document.getElementById('prod-category').value;
         const description = document.getElementById('prod-desc').value;
         const price = parseFloat(document.getElementById('prod-price').value);
         const stock = parseInt(document.getElementById('prod-stock').value);
         const img = document.getElementById('prod-img').value || '';
+
+        // Normalize category before sending
+        category = normalizeCategory(category);
 
         const body = { name, category, description, price, stock, img };
 
@@ -358,7 +373,7 @@ const AdminSystem = {
             document.getElementById('prod-id').value = product.id;
             document.getElementById('prod-name').value = product.name;
             if (document.getElementById('prod-category')) {
-                document.getElementById('prod-category').value = product.category || 'Linea Boom';
+                document.getElementById('prod-category').value = product.category ? normalizeCategory(product.category) : 'Línea Bloom';
             }
             document.getElementById('prod-desc').value = product.description;
             document.getElementById('prod-price').value = product.price;
