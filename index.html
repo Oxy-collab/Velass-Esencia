@@ -8,6 +8,21 @@
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
+    <!-- Modal para detalle del producto -->
+<div id="product-detail-modal" class="modal-overlay">
+    <div class="modal-card" id="product-detail-content">
+        <!-- Contenido del producto se inserta por JS -->
+        <button id="close-detail-modal" class="btn text-btn" style="float:right;">Cerrar</button>
+        <div id="product-detail-inner"></div>
+    </div>
+</div>
+<style>
+/* Puedes ajustar estilos */
+#product-detail-modal {display:none; position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.6);z-index:10000;justify-content:center;align-items:center;}
+#product-detail-modal.active {display:flex;}
+#product-detail-content { background:#fff; padding:2em; border-radius:1em; max-width:90vw; width:400px; position:relative; }
+#product-detail-inner img {max-width:100%;border-radius:10px;margin-bottom:10px;}
+</style>
 
 <body>
     <header class="navbar">
