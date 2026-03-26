@@ -24,7 +24,7 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        category TEXT DEFAULT 'Linea Bloom',
+        category TEXT DEFAULT 'línea Bloom',
         description TEXT,
         price REAL NOT NULL,
         stock INTEGER DEFAULT 0,
@@ -42,8 +42,8 @@ db.serialize(() => {
     db.get('SELECT COUNT(*) as count FROM products', (err, row) => {
         if (row.count === 0) {
             const products = [
-                ['Bloom mediana', 'Linea Bloom', 'Vela en envase de vidrio con acabado floral decorativo.', 16000, 50, ''],
-                ['Bloom grande', 'Linea Bloom', 'Versión con mayor duración.', 24000, 30, ''],
+                ['Bloom mediana', 'línea Bloom', 'Vela en envase de vidrio con acabado floral decorativo.', 16000, 50, ''],
+                ['Bloom grande', 'línea Bloom', 'Versión con mayor duración.', 24000, 30, ''],
                 ['Set Corazón', 'Mini Scents', '2 velas medianas.', 15000, 40, ''],
                 ['Set Rosas', 'Mini Scents', '4 velas pequeñas.', 18000, 40, ''],
                 ['Terrario', 'Terrario', 'Decorada con estilo natural.', 30000, 20, ''],
@@ -77,7 +77,7 @@ app.post('/api/products', (req, res) => {
     const { name, category, description, price, stock, img } = req.body;
     db.run(
         'INSERT INTO products (name, category, description, price, stock, img) VALUES (?, ?, ?, ?, ?, ?)',
-        [name, category || 'Linea Bloom', description, price, stock, img || ''],
+        [name, category || 'línea Bloom', description, price, stock, img || ''],
         function (err) {
             if (err) return res.status(500).json({ error: err.message });
             getOne('SELECT * FROM products WHERE id = ?', [this.lastID], (err, product) => {
@@ -93,7 +93,7 @@ app.put('/api/products/:id', (req, res) => {
     const { name, category, description, price, stock, img } = req.body;
     db.run(
         'UPDATE products SET name=?, category=?, description=?, price=?, stock=?, img=? WHERE id=?',
-        [name, category || 'Linea Bloom', description, price, stock, img || '', id],
+        [name, category || 'línea Bloom', description, price, stock, img || '', id],
         function (err) {
             if (err) return res.status(500).json({ error: err.message });
             getOne('SELECT * FROM products WHERE id = ?', [id], (err, product) => {
