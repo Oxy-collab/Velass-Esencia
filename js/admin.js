@@ -483,15 +483,208 @@ const SocialMediaAdmin = {
     }
 };
 
+// =================== INVENTORY SUB-TABS ===================
+const InventorySubTabs = {
+    init() {
+        document.querySelectorAll('.inv-subtab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.subtab;
+                document.querySelectorAll('.inv-subtab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.inv-subtab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                const panel = document.getElementById(`inv-${target}`);
+                if (panel) panel.classList.add('active');
+                // Load materials when switching to that tab
+                if (target === 'materials') RawMaterialsSystem.render();
+            });
+        });
+    }
+};
+
+// =================== RAW MATERIALS SYSTEM ===================
+const RawMaterialsSystem = {
+    STORAGE_KEY: 'raw_materials',
+    CAT_ICONS: { Cera: '🕯️', Esencias: '🌸', Moldes: '🔲', Colorantes: '🎨', Empaques: '📦', Mechas: '🔥', Otros: '🔧' },
+
+    load() {
+        const stored = localStorage.getItem(this.STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
+    },
+
+    save(materials) {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(materials));
+    },
+
+    add(data) {
+        const materials = this.load();
+        const item = { id: Date.now(), ...data, updatedAt: new Date().toISOString() };
+        materials.push(item);
+        this.save(materials);
+        return item;
+    },
+
+    update(id, data) {
+        const materials = this.load().map(m =>
+            m.id === id ? { ...m, ...data, updatedAt: new Date().toISOString() } : m
+        );
+        this.save(materials);
+    },
+
+    delete(id) {
+        this.save(this.load().filter(m => m.id !== id));
+    },
+
+    getStatus(qty, min) {
+        if (!min || min === 0) return { label: '✅ OK', cls: 'ok' };
+        if (qty === 0) return { label: '❌ Agotado', cls: 'agotado' };
+        if (qty <= min) return { label: '⚠️ Bajo stock', cls: 'bajo' };
+        return { label: '✅ OK', cls: 'ok' };
+    },
+
+    render() {
+        const tbody = document.getElementById('materials-list');
+        const alertsEl = document.getElementById('materials-alerts');
+        const summaryEl = document.getElementById('materials-summary');
+        if (!tbody) return;
+
+        const materials = this.load();
+        const fmt = n => n !== undefined && n !== '' && n !== null
+            ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+            : '—';
+
+        // Render alerts for low stock
+        const lowStock = materials.filter(m => m.minQty > 0 && parseFloat(m.qty) <= parseFloat(m.minQty));
+        if (alertsEl) {
+            alertsEl.innerHTML = lowStock.length > 0
+                ? `<div class="materials-alert-box">
+                    ⚠️ <strong>${lowStock.length} material(es) con stock bajo o agotado:</strong>
+                    ${lowStock.map(m => `<span class="mat-alert-badge">${this.CAT_ICONS[m.category] || '🔧'} ${m.name} (${m.qty} ${m.unit})</span>`).join('')}
+                   </div>`
+                : '';
+        }
+
+        // Render category summary
+        if (summaryEl && materials.length > 0) {
+            const cats = [...new Set(materials.map(m => m.category))];
+            summaryEl.innerHTML = `<div class="mat-summary-row">
+                ${cats.map(cat => {
+                    const items = materials.filter(m => m.category === cat);
+                    return `<div class="mat-summary-chip">
+                        <span>${this.CAT_ICONS[cat] || '🔧'} ${cat}</span>
+                        <strong>${items.length}</strong>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        } else if (summaryEl) {
+            summaryEl.innerHTML = '';
+        }
+
+        if (materials.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:#999;">No hay materias primas registradas. Haz clic en "+ Añadir Material" para comenzar.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = materials.map(m => {
+            const status = this.getStatus(parseFloat(m.qty), parseFloat(m.minQty));
+            const icon = this.CAT_ICONS[m.category] || '🔧';
+            return `<tr>
+                <td><strong>${icon} ${m.name}</strong></td>
+                <td>${m.category}</td>
+                <td class="mat-qty ${status.cls === 'bajo' || status.cls === 'agotado' ? 'qty-low' : ''}">${m.qty}</td>
+                <td>${m.unit}</td>
+                <td>${m.minQty || '—'}</td>
+                <td><span class="mat-status ${status.cls}">${status.label}</span></td>
+                <td style="font-size:0.85rem;color:#999;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${m.notes || '—'}</td>
+                <td>
+                    <button class="action-btn edit-btn" onclick="RawMaterialsSystem.openEdit(${m.id})">Editar</button>
+                    <button class="action-btn del-btn" onclick="RawMaterialsSystem.confirmDelete(${m.id})">Eliminar</button>
+                </td>
+            </tr>`;
+        }).join('');
+    },
+
+    openAdd() {
+        const form = document.getElementById('material-form');
+        if (form) form.reset();
+        document.getElementById('mat-id').value = '';
+        document.getElementById('material-modal-title').textContent = 'Añadir Materia Prima';
+        document.getElementById('material-modal').classList.add('active');
+    },
+
+    openEdit(id) {
+        const m = this.load().find(m => m.id === id);
+        if (!m) return;
+        document.getElementById('mat-id').value = m.id;
+        document.getElementById('mat-name').value = m.name;
+        document.getElementById('mat-category').value = m.category;
+        document.getElementById('mat-qty').value = m.qty;
+        document.getElementById('mat-unit').value = m.unit;
+        document.getElementById('mat-min').value = m.minQty || '';
+        document.getElementById('mat-cost').value = m.cost || '';
+        document.getElementById('mat-notes').value = m.notes || '';
+        document.getElementById('material-modal-title').textContent = 'Editar Materia Prima';
+        document.getElementById('material-modal').classList.add('active');
+    },
+
+    confirmDelete(id) {
+        const m = this.load().find(m => m.id === id);
+        if (!m) return;
+        if (confirm(`¿Eliminar "${m.name}" del inventario?`)) {
+            this.delete(id);
+            this.render();
+            Toast.show('Material eliminado');
+        }
+    },
+
+    setupModal() {
+        const modal = document.getElementById('material-modal');
+        const btnAdd = document.getElementById('btn-add-material');
+        const btnCancel = document.getElementById('btn-cancel-material-modal');
+        const form = document.getElementById('material-form');
+        if (!modal || !form) return;
+
+        if (btnAdd) btnAdd.addEventListener('click', () => this.openAdd());
+        if (btnCancel) btnCancel.addEventListener('click', () => modal.classList.remove('active'));
+        modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('active'); });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('mat-id').value;
+            const data = {
+                name: document.getElementById('mat-name').value.trim(),
+                category: document.getElementById('mat-category').value,
+                qty: parseFloat(document.getElementById('mat-qty').value) || 0,
+                unit: document.getElementById('mat-unit').value,
+                minQty: parseFloat(document.getElementById('mat-min').value) || 0,
+                cost: parseFloat(document.getElementById('mat-cost').value) || null,
+                notes: document.getElementById('mat-notes').value.trim()
+            };
+
+            if (id) {
+                this.update(parseInt(id), data);
+                Toast.show(`"${data.name}" actualizado`);
+            } else {
+                this.add(data);
+                Toast.show(`"${data.name}" agregado al inventario`);
+            }
+
+            modal.classList.remove('active');
+            this.render();
+        });
+    }
+};
+
 // =================== ADMIN PAGE INIT ===================
 const AdminPageInit = {
     async init() {
         if (!document.querySelector('.admin-page')) return;
 
         TabSystem.init();
+        InventorySubTabs.init();
         FinanceSystem.init();
         FinanceUI.updateDashboard();
         AdminInventorySystem.init();
+        RawMaterialsSystem.setupModal();
         SocialMediaAdmin.init();
 
         const dateInput = document.getElementById('trans-date');
