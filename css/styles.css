@@ -766,3 +766,313 @@ main { flex: 1; padding: 2rem 5%; }
     color: var(--primary-color);
     font-weight: 600;
 }
+
+/* =================== SOCIAL FEED SECTION =================== */
+.social-feed {
+    margin: 4rem 0 2rem;
+    padding: 3rem 2rem;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.social-feed-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.social-feed-header h2 {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.social-feed-header p {
+    color: var(--text-color);
+    opacity: 0.7;
+    font-size: 1rem;
+}
+
+.social-feed-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+}
+
+.social-feed-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.social-feed-col-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    width: 100%;
+    justify-content: center;
+}
+
+.social-feed-col-header h3 {
+    font-size: 1.1rem;
+    color: var(--text-color);
+    margin: 0;
+}
+
+.social-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.social-badge.tiktok {
+    background: linear-gradient(135deg, #010101 0%, #69C9D0 50%, #EE1D52 100%);
+    color: white;
+}
+
+.social-badge.instagram {
+    background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045);
+    color: white;
+}
+
+.social-embed-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    min-height: 500px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--input-bg);
+    position: relative;
+}
+
+.social-embed-wrapper iframe,
+.social-embed-wrapper blockquote {
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+.social-follow-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.5rem;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition);
+    color: white;
+}
+
+.social-follow-btn.tiktok {
+    background: #010101;
+    border: 1px solid #69C9D0;
+}
+
+.social-follow-btn.tiktok:hover {
+    background: #1a1a1a;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(105, 201, 208, 0.4);
+    color: white;
+}
+
+.social-follow-btn.instagram {
+    background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045);
+}
+
+.social-follow-btn.instagram:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(253, 29, 29, 0.4);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .social-feed-grid {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+    }
+}
+
+/* =================== TOAST NOTIFICATIONS =================== */
+.toast-container {
+    position: fixed;
+    top: 90px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    background: var(--card-bg);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-color);
+    animation: toastIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+    pointer-events: all;
+    backdrop-filter: blur(12px);
+    border-left: 4px solid var(--primary-color);
+    max-width: 360px;
+}
+
+.toast.success { border-left-color: #4CAF50; }
+.toast.error   { border-left-color: #F44336; }
+.toast.info    { border-left-color: #2196F3; }
+
+.toast-icon { font-size: 1.3rem; }
+
+.toast.hide {
+    animation: toastOut 0.3s ease forwards;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(60px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastOut {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(60px); }
+}
+
+/* =================== ADMIN IMPROVEMENTS =================== */
+/* Monthly trend chart */
+.chart-full-row {
+    grid-column: 1 / -1;
+}
+
+/* Admin Social Tab */
+.social-admin-section {
+    padding: 1.5rem 0;
+}
+
+.social-admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.social-admin-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+}
+
+.social-admin-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+}
+
+.social-admin-card .form-group {
+    margin-bottom: 1rem;
+}
+
+.social-preview-mini {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--input-border);
+    text-align: center;
+    min-height: 80px;
+}
+
+.social-preview-mini p {
+    font-size: 0.85rem;
+    color: #999;
+    margin-bottom: 0.75rem;
+}
+
+/* KPI trend indicator */
+.stat-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    margin-top: 0.4rem;
+}
+
+.stat-trend.up   { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
+.stat-trend.down { background: rgba(244, 67, 54, 0.15); color: #F44336; }
+.stat-trend.flat { background: rgba(158, 158, 158, 0.15); color: #999; }
+
+/* Improved stat card */
+.stat-card {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    border-left: 5px solid var(--secondary-color);
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
+.stat-card.success { border-left-color: #4CAF50; }
+.stat-card.danger  { border-left-color: #F44336; }
+.stat-card.primary { border-left-color: #2196F3; }
+
+[data-theme="dark"] .stat-card h3 { color: #bbb; }
+[data-theme="dark"] .trans-desc   { color: #bbb; }
+[data-theme="dark"] .trans-date   { color: #888; }
+[data-theme="dark"] .summary-label { color: #bbb; }
+[data-theme="dark"] .stat-detail  { color: #aaa; }
+
+/* Dark mode table borders */
+[data-theme="dark"] .inventory-table th,
+[data-theme="dark"] .inventory-table td {
+    border-bottom-color: rgba(255,255,255,0.07);
+}
+
+[data-theme="dark"] .inventory-table th {
+    background: rgba(255,255,255,0.05);
+}
+
+[data-theme="dark"] .transaction-item {
+    background: rgba(255,255,255,0.04);
+}
+
+[data-theme="dark"] .transaction-item.ingreso {
+    background: rgba(76, 175, 80, 0.08);
+}
+
+[data-theme="dark"] .transaction-item.egreso {
+    background: rgba(244, 67, 54, 0.08);
+}
+
+[data-theme="dark"] .text-btn:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .summary-item {
+    background: rgba(195, 155, 211, 0.1);
+}
+
+@media (max-width: 768px) {
+    .social-admin-grid { grid-template-columns: 1fr; }
+    .chart-section { grid-template-columns: 1fr; }
+}
