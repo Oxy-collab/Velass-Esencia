@@ -4,13 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Velass&Esencia - Panel Admin</title>
+    <title>Velass&amp;Esencia - Panel Admin</title>
+    <meta name="description" content="Panel de administración Velass&amp;Esencia – gestión de finanzas, inventario y redes sociales.">
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
 <body class="admin-page">
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
     <header class="navbar">
         <button id="theme-toggle" class="theme-btn" title="Alternar Modo Oscuro">
             <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2"
@@ -35,6 +39,7 @@
             <button class="tab-btn" data-tab="finances">💰 Finanzas</button>
             <button class="tab-btn" data-tab="inventory">📦 Inventario</button>
             <button class="tab-btn" data-tab="reports">📈 Reportes</button>
+            <button class="tab-btn" data-tab="social">📱 Redes Sociales</button>
         </div>
 
         <!-- =================== DASHBOARD TAB =================== -->
@@ -46,16 +51,19 @@
                         <h3>Ingresos Este Mes</h3>
                         <p class="stat-value" id="monthly-income">$0</p>
                         <p class="stat-detail" id="income-count">0 transacciones</p>
+                        <span class="stat-trend flat" id="income-trend">→ Sin datos previos</span>
                     </div>
                     <div class="stat-card danger">
                         <h3>Egresos Este Mes</h3>
                         <p class="stat-value" id="monthly-expense">$0</p>
                         <p class="stat-detail" id="expense-count">0 transacciones</p>
+                        <span class="stat-trend flat" id="expense-trend">→ Sin datos previos</span>
                     </div>
                     <div class="stat-card primary">
                         <h3>Ganancia Neta</h3>
                         <p class="stat-value" id="net-profit">$0</p>
                         <p class="stat-detail" id="profit-percentage">+0%</p>
+                        <span class="stat-trend flat" id="profit-trend">→ Sin datos previos</span>
                     </div>
                     <div class="stat-card">
                         <h3>Productos en Stock</h3>
@@ -65,15 +73,19 @@
                 </div>
             </section>
 
-            <!-- Quick Stats Chart -->
+            <!-- Charts Grid -->
             <section class="chart-section">
                 <div class="chart-container">
-                    <h3>Comparativa Ingresos vs Egresos (7 días)</h3>
+                    <h3>📅 Comparativa Ingresos vs Egresos (7 días)</h3>
                     <canvas id="weekChart"></canvas>
                 </div>
                 <div class="chart-container">
-                    <h3>Distribución de Gastos</h3>
+                    <h3>🍩 Distribución de Gastos del Mes</h3>
                     <canvas id="expenseChart"></canvas>
+                </div>
+                <div class="chart-container chart-full-row">
+                    <h3>📈 Tendencia Mensual del Año (Ingresos vs Egresos)</h3>
+                    <canvas id="monthlyTrendChart"></canvas>
                 </div>
             </section>
         </div>
@@ -177,11 +189,11 @@
 
                 <div class="reports-grid">
                     <div class="chart-container">
-                        <h3>Ingresos Diarios del Mes</h3>
+                        <h3>📅 Ingresos Diarios del Mes</h3>
                         <canvas id="dailyIncomeChart"></canvas>
                     </div>
                     <div class="chart-container">
-                        <h3>Egresos por Categoría</h3>
+                        <h3>📊 Egresos por Categoría</h3>
                         <canvas id="categoryExpenseChart"></canvas>
                     </div>
                 </div>
@@ -206,6 +218,50 @@
                             <span class="summary-value" id="report-margin">0%</span>
                         </div>
                     </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== SOCIAL MEDIA TAB =================== -->
+        <div id="social" class="tab-content">
+            <section class="social-admin-section">
+                <h2>Configurar Novedades en la Página Principal</h2>
+                <p style="color: #999; margin-top: 0.5rem; margin-bottom: 0;">
+                    Ingresa las URLs de los posts que quieres mostrar en la sección "Últimas Novedades" del catálogo.
+                </p>
+
+                <div class="social-admin-grid">
+                    <!-- TikTok Card -->
+                    <div class="social-admin-card">
+                        <h3>🎵 TikTok</h3>
+                        <div class="form-group">
+                            <label>URL del video de TikTok</label>
+                            <input type="url" id="tiktok-url" class="form-control"
+                                placeholder="https://www.tiktok.com/@velass.esencia/video/...">
+                        </div>
+                        <button class="btn primary-btn" id="btn-save-tiktok" style="width:100%;">Guardar TikTok</button>
+                        <div class="social-preview-mini" id="tiktok-preview-mini">
+                            <p>Vista previa aparecerá aquí después de guardar</p>
+                        </div>
+                    </div>
+
+                    <!-- Instagram Card -->
+                    <div class="social-admin-card">
+                        <h3>📸 Instagram</h3>
+                        <div class="form-group">
+                            <label>URL del Reel o post de Instagram</label>
+                            <input type="url" id="instagram-url" class="form-control"
+                                placeholder="https://www.instagram.com/reel/...">
+                        </div>
+                        <button class="btn primary-btn" id="btn-save-instagram" style="width:100%;">Guardar Instagram</button>
+                        <div class="social-preview-mini" id="instagram-preview-mini">
+                            <p>Vista previa aparecerá aquí después de guardar</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(142,68,173,0.07); border-radius: 12px; border-left: 4px solid var(--primary-color);">
+                    <strong>💡 Tip:</strong> Cuando actualices las URLs aquí, los cambios se reflejarán automáticamente en la sección "Últimas Novedades" de la página del catálogo para todos los visitantes del sitio.
                 </div>
             </section>
         </div>
