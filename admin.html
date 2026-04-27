@@ -7,6 +7,7 @@
     <title>Velass&Esencia - Panel Admin</title>
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
 <body class="admin-page">
@@ -28,48 +29,186 @@
     </header>
 
     <main class="admin-container">
-        <section class="dashboard">
-            <h2>Contabilidad y Resumen</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Ventas Totales</h3>
-                    <p class="stat-value">$1,240.00</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Pedidos Pendientes</h3>
-                    <p class="stat-value">14</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Productos en Inventario</h3>
-                    <p class="stat-value" id="inventory-count">0</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Usuarios Registrados</h3>
-                    <p class="stat-value" id="users-count">0</p>
-                </div>
-            </div>
-        </section>
+        <!-- Tabs Navigation -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+            <button class="tab-btn" data-tab="finances">💰 Finanzas</button>
+            <button class="tab-btn" data-tab="inventory">📦 Inventario</button>
+            <button class="tab-btn" data-tab="reports">📈 Reportes</button>
+        </div>
 
-        <section class="inventory">
-            <div class="inventory-header">
-                <h2>Control de Inventario</h2>
-                <button class="btn secondary-btn" id="btn-add-product">+ Añadir Producto</button>
-            </div>
-            <table class="inventory-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Precio</th>
-                        <th>Stock</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="inventory-list">
-                    <!-- Inventory items -->
-                </tbody>
-            </table>
-        </section>
+        <!-- =================== DASHBOARD TAB =================== -->
+        <div id="dashboard" class="tab-content active">
+            <section class="dashboard">
+                <h2>Resumen Rápido</h2>
+                <div class="stats-grid">
+                    <div class="stat-card success">
+                        <h3>Ingresos Este Mes</h3>
+                        <p class="stat-value" id="monthly-income">$0</p>
+                        <p class="stat-detail" id="income-count">0 transacciones</p>
+                    </div>
+                    <div class="stat-card danger">
+                        <h3>Egresos Este Mes</h3>
+                        <p class="stat-value" id="monthly-expense">$0</p>
+                        <p class="stat-detail" id="expense-count">0 transacciones</p>
+                    </div>
+                    <div class="stat-card primary">
+                        <h3>Ganancia Neta</h3>
+                        <p class="stat-value" id="net-profit">$0</p>
+                        <p class="stat-detail" id="profit-percentage">+0%</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Productos en Stock</h3>
+                        <p class="stat-value" id="inventory-count">0</p>
+                        <p class="stat-detail">Unidades disponibles</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Stats Chart -->
+            <section class="chart-section">
+                <div class="chart-container">
+                    <h3>Comparativa Ingresos vs Egresos (7 días)</h3>
+                    <canvas id="weekChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Distribución de Gastos</h3>
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== FINANCES TAB =================== -->
+        <div id="finances" class="tab-content">
+            <section class="finance-section">
+                <div class="finance-header">
+                    <h2>Gestión Financiera</h2>
+                    <div class="date-filter">
+                        <input type="month" id="finance-month" class="form-control">
+                    </div>
+                </div>
+
+                <!-- Add Transaction Form -->
+                <div class="transaction-form-container">
+                    <h3>Registrar Transacción</h3>
+                    <form id="transaction-form" class="transaction-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tipo</label>
+                                <select id="trans-type" required>
+                                    <option value="ingreso">💰 Ingreso</option>
+                                    <option value="egreso">💸 Egreso</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Categoría</label>
+                                <select id="trans-category" required>
+                                    <option value="Venta">Venta</option>
+                                    <option value="Compra de Materiales">Compra de Materiales</option>
+                                    <option value="Servicios">Servicios</option>
+                                    <option value="Gastos Operativos">Gastos Operativos</option>
+                                    <option value="Otros">Otros</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Monto ($)</label>
+                                <input type="number" id="trans-amount" step="0.01" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha</label>
+                                <input type="date" id="trans-date" required>
+                            </div>
+                        </div>
+                        <div class="form-group full">
+                            <label>Descripción</label>
+                            <input type="text" id="trans-description" placeholder="Ej: Venta a cliente X">
+                        </div>
+                        <button type="submit" class="btn primary-btn">Registrar Transacción</button>
+                    </form>
+                </div>
+
+                <!-- Transactions List -->
+                <div class="transactions-container">
+                    <h3>Historial de Transacciones</h3>
+                    <div class="transactions-list" id="transactions-list">
+                        <p style="text-align: center; color: #999;">No hay transacciones registradas</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== INVENTORY TAB =================== -->
+        <div id="inventory" class="tab-content">
+            <section class="inventory">
+                <div class="inventory-header">
+                    <h2>Control de Inventario</h2>
+                    <button class="btn secondary-btn" id="btn-add-product">+ Añadir Producto</button>
+                </div>
+                <table class="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Categoría</th>
+                            <th>Precio</th>
+                            <th>Stock</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-list">
+                        <!-- Inventory items -->
+                    </tbody>
+                </table>
+            </section>
+        </div>
+
+        <!-- =================== REPORTS TAB =================== -->
+        <div id="reports" class="tab-content">
+            <section class="reports-section">
+                <h2>Reportes y Análisis</h2>
+                
+                <div class="report-filters">
+                    <input type="month" id="report-month" class="form-control">
+                    <button class="btn primary-btn" id="btn-generate-report">Generar Reporte</button>
+                </div>
+
+                <div class="reports-grid">
+                    <div class="chart-container">
+                        <h3>Ingresos Diarios del Mes</h3>
+                        <canvas id="dailyIncomeChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Egresos por Categoría</h3>
+                        <canvas id="categoryExpenseChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="report-summary">
+                    <h3>Resumen del Período</h3>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <span class="summary-label">Total Ingresos:</span>
+                            <span class="summary-value" id="report-total-income">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Total Egresos:</span>
+                            <span class="summary-value" id="report-total-expense">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Ganancia Neta:</span>
+                            <span class="summary-value success" id="report-net-profit">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Margen de Ganancia:</span>
+                            <span class="summary-value" id="report-margin">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </main>
 
     <!-- Modal for Add/Edit Product -->
@@ -85,7 +224,7 @@
                 <div class="form-group">
                     <label>Categoría</label>
                     <select id="prod-category" required>
-                       <option value="Línea Bloom">Línea Bloom</option>
+                        <option value="Línea Bloom">Línea Bloom</option>
                         <option value="Mini Scents">Mini Scents</option>
                         <option value="Terrario">Terrario</option>
                         <option value="Linea Pet soul">Linea Pet soul</option>
@@ -116,8 +255,9 @@
     </div>
 
     <script src="js/app.js"></script>
+    <script src="js/admin.js"></script>
     <script>
-        // Restrict page access briefly
+        // Restrict page access
         setTimeout(() => {
             if (!AdminSystem.isAdmin()) {
                 alert('Acceso denegado. Redirigiendo al inicio...');
