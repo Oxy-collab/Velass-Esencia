@@ -1076,3 +1076,121 @@ main { flex: 1; padding: 2rem 5%; }
     .social-admin-grid { grid-template-columns: 1fr; }
     .chart-section { grid-template-columns: 1fr; }
 }
+
+/* =================== INVENTORY SUB-TABS =================== */
+.inv-subtabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--input-bg);
+    padding: 0.4rem;
+    border-radius: 12px;
+    width: fit-content;
+}
+
+.inv-subtab-btn {
+    background: transparent;
+    border: none;
+    padding: 0.6rem 1.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-color);
+    border-radius: 8px;
+    transition: var(--transition);
+    font-family: 'Outfit', sans-serif;
+}
+
+.inv-subtab-btn:hover {
+    background: rgba(142, 68, 173, 0.1);
+    color: var(--primary-color);
+}
+
+.inv-subtab-btn.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 12px rgba(142, 68, 173, 0.3);
+}
+
+.inv-subtab-content {
+    display: none;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.inv-subtab-content.active {
+    display: block;
+}
+
+/* =================== RAW MATERIALS =================== */
+.materials-alert-box {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    background: rgba(244, 67, 54, 0.08);
+    border: 1px solid rgba(244, 67, 54, 0.25);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.mat-alert-badge {
+    background: rgba(244, 67, 54, 0.15);
+    color: #F44336;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.mat-summary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.mat-summary-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--input-border);
+    padding: 0.5rem 1rem;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    box-shadow: var(--shadow);
+}
+
+.mat-summary-chip strong {
+    background: var(--primary-color);
+    color: white;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+/* Status badges in materials table */
+.mat-status {
+    display: inline-block;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.mat-status.ok      { background: rgba(76,175,80,0.12);  color: #4CAF50; }
+.mat-status.bajo    { background: rgba(255,152,0,0.12);  color: #FF9800; }
+.mat-status.agotado { background: rgba(244,67,54,0.12);  color: #F44336; }
+
+.mat-qty { font-weight: 700; }
+.mat-qty.qty-low    { color: #F44336; }
+
+[data-theme="dark"] .inv-subtab-btn { color: var(--text-color); }
+[data-theme="dark"] .materials-alert-box { border-color: rgba(244,67,54,0.3); }
