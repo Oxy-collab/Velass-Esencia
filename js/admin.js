@@ -1,8 +1,7 @@
 // =============================================
 // ADMIN DASHBOARD SYSTEM - Velass&Esencia
 // =============================================
-
-const API_BASE = '';
+// Nota: API_BASE ya está declarada en app.js (cargado primero)
 
 // =================== TOAST SYSTEM ===================
 const Toast = {
