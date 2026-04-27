@@ -466,44 +466,6 @@ const ThemeSystem = {
     }
 };
 
-// Initialize App
-document.addEventListener('DOMContentLoaded', async () => {
-    ThemeSystem.init();
-    await AppSystem.init();
-    await CatalogSystem.init();
-    CustomCandleSystem.init();
-    AuthSystem.init();
-    await AdminSystem.init();
-    AnimationSystem.init();
-    SocialFeedSystem.init();
-});
-
-// --- Vista Detallada de Producto ---
-function openProductDetail(product) {
-    const modal = document.getElementById('product-detail-modal');
-    const content = document.getElementById('product-detail-inner');
-    if (!modal || !content) return;
-    content.innerHTML = `
-        <img src="${product.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente'}" alt="${product.name}">
-        <h2 style="margin-top:0">${product.name}</h2>
-        <p><strong>Categoría:</strong> ${product.category}</p>
-        <p><strong>Descripción:</strong> ${product.description}</p>
-        <p><strong>Precio:</strong> ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(product.price)}</p>
-        <button class="btn primary-btn" onclick="CatalogSystem.buyProduct('${product.name.replace(/'/g,'\\\\\'')}')">Pedir por WhatsApp/IG</button>
-    `;
-    modal.classList.add('active');
-}
-
-// Cerrar modal
-document.addEventListener('DOMContentLoaded', ()=>{
-    const m = document.getElementById('product-detail-modal');
-    if (m) {
-        m.addEventListener('click', e=>{
-            if (e.target === m || e.target.id === 'close-detail-modal') m.classList.remove('active');
-        });
-    }
-});
-
 // =================== SOCIAL FEED SYSTEM ===================
 const SocialFeedSystem = {
     DEFAULTS: {
@@ -524,7 +486,6 @@ const SocialFeedSystem = {
     },
 
     extractInstagramShortcode(url) {
-        // Matches /p/CODE/ or /reel/CODE/
         const m = url.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
         return m ? m[2] : null;
     },
@@ -532,7 +493,6 @@ const SocialFeedSystem = {
     init() {
         const section = document.getElementById('social-feed-section');
         if (!section) return;
-
         const config = this.getConfig();
         this.renderTikTok(config.tiktok);
         this.renderInstagram(config.instagram);
@@ -543,7 +503,6 @@ const SocialFeedSystem = {
         if (!wrapper) return;
         const videoId = this.extractTikTokId(url);
         if (!videoId) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Video no disponible</p>'; return; }
-
         wrapper.innerHTML = `
             <blockquote class="tiktok-embed"
                 cite="${url}"
@@ -553,11 +512,7 @@ const SocialFeedSystem = {
                     <a target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/@velass.esencia">@velass.esencia</a>
                 </section>
             </blockquote>`;
-
-        // Re-process TikTok embeds if SDK already loaded
-        if (window.tiktok && window.tiktok.reload) {
-            window.tiktok.reload();
-        }
+        if (window.tiktok && window.tiktok.reload) window.tiktok.reload();
     },
 
     renderInstagram(url) {
@@ -565,7 +520,6 @@ const SocialFeedSystem = {
         if (!wrapper) return;
         const code = this.extractInstagramShortcode(url);
         if (!code) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Post no disponible</p>'; return; }
-
         const cleanUrl = `https://www.instagram.com/reel/${code}/`;
         wrapper.innerHTML = `
             <blockquote class="instagram-media"
@@ -573,11 +527,43 @@ const SocialFeedSystem = {
                 data-instgrm-version="14"
                 style="background:#FFF;border:0;border-radius:12px;box-shadow:0 0 1px 0 rgba(0,0,0,.5),0 1px 10px 0 rgba(0,0,0,.15);margin:1px;max-width:540px;min-width:326px;padding:0;width:calc(100% - 2px);">
             </blockquote>`;
-
-        // Re-process Instagram embeds if SDK already loaded
-        if (window.instgrm && window.instgrm.Embeds) {
-            window.instgrm.Embeds.process();
-        }
+        if (window.instgrm && window.instgrm.Embeds) window.instgrm.Embeds.process();
     }
 };
+
+// Initialize App
+document.addEventListener('DOMContentLoaded', async () => {
+    ThemeSystem.init();
+    await AppSystem.init();
+    await CatalogSystem.init();
+    CustomCandleSystem.init();
+    AuthSystem.init();
+    await AdminSystem.init();
+    AnimationSystem.init();
+    SocialFeedSystem.init();
+
+    // Cerrar modal de detalle de producto
+    const m = document.getElementById('product-detail-modal');
+    if (m) {
+        m.addEventListener('click', e => {
+            if (e.target === m || e.target.id === 'close-detail-modal') m.classList.remove('active');
+        });
+    }
+});
+
+// --- Vista Detallada de Producto ---
+function openProductDetail(product) {
+    const modal = document.getElementById('product-detail-modal');
+    const content = document.getElementById('product-detail-inner');
+    if (!modal || !content) return;
+    content.innerHTML = `
+        <img src="${product.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente'}" alt="${product.name}">
+        <h2 style="margin-top:0">${product.name}</h2>
+        <p><strong>Categoría:</strong> ${product.category}</p>
+        <p><strong>Descripción:</strong> ${product.description}</p>
+        <p><strong>Precio:</strong> ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(product.price)}</p>
+        <button class="btn primary-btn" onclick="CatalogSystem.buyProduct('${product.name.replace(/'/g,'\\\\\'')}')">Pedir por WhatsApp/IG</button>
+    `;
+    modal.classList.add('active');
+}
 
