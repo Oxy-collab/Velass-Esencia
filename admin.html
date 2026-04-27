@@ -153,29 +153,74 @@
 
         <!-- =================== INVENTORY TAB =================== -->
         <div id="inventory" class="tab-content">
-            <section class="inventory">
-                <div class="inventory-header">
-                    <h2>Control de Inventario</h2>
-                    <button class="btn secondary-btn" id="btn-add-product">+ Añadir Producto</button>
-                </div>
-                <table class="inventory-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Categoría</th>
-                            <th>Precio</th>
-                            <th>Stock</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventory-list">
-                        <!-- Inventory items -->
-                    </tbody>
-                </table>
-            </section>
-        </div>
+
+            <!-- Sub-tabs -->
+            <div class="inv-subtabs">
+                <button class="inv-subtab-btn active" data-subtab="products">📦 Productos del Catálogo</button>
+                <button class="inv-subtab-btn" data-subtab="materials">🧪 Materias Primas</button>
+            </div>
+
+            <!-- ---- SUB-TAB: PRODUCTOS ---- -->
+            <div id="inv-products" class="inv-subtab-content active">
+                <section class="inventory">
+                    <div class="inventory-header">
+                        <h2>Productos del Catálogo</h2>
+                        <button class="btn secondary-btn" id="btn-add-product">+ Añadir Producto</button>
+                    </div>
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-list">
+                            <!-- Inventory items -->
+                        </tbody>
+                    </table>
+                </section>
+            </div><!-- /inv-products -->
+
+            <!-- ---- SUB-TAB: MATERIAS PRIMAS ---- -->
+            <div id="inv-materials" class="inv-subtab-content">
+                <section class="inventory">
+                    <div class="inventory-header">
+                        <h2>🧪 Materias Primas</h2>
+                        <button class="btn secondary-btn" id="btn-add-material">+ Añadir Material</button>
+                    </div>
+
+                    <!-- Alertas de stock bajo -->
+                    <div id="materials-alerts"></div>
+
+                    <!-- Resumen rápido de materiales -->
+                    <div class="materials-summary" id="materials-summary"></div>
+
+                    <table class="inventory-table" id="materials-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Cantidad</th>
+                                <th>Unidad</th>
+                                <th>Stock Mínimo</th>
+                                <th>Estado</th>
+                                <th>Notas</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materials-list">
+                            <!-- Materials inserted by JS -->
+                        </tbody>
+                    </table>
+                </section>
+            </div><!-- /inv-materials -->
+
+        </div><!-- /inventory tab-content -->
 
         <!-- =================== REPORTS TAB =================== -->
         <div id="reports" class="tab-content">
@@ -310,7 +355,72 @@
         </div>
     </div>
 
+    <!-- Modal for Add/Edit Material -->
+    <div class="modal-overlay" id="material-modal">
+        <div class="modal-card">
+            <h3 id="material-modal-title">Añadir Materia Prima</h3>
+            <form id="material-form">
+                <input type="hidden" id="mat-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre del Material</label>
+                        <input type="text" id="mat-name" placeholder="Ej: Cera de soja" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select id="mat-category" required>
+                            <option value="Cera">🕯️ Cera</option>
+                            <option value="Esencias">🌸 Esencias</option>
+                            <option value="Moldes">🔲 Moldes</option>
+                            <option value="Colorantes">🎨 Colorantes</option>
+                            <option value="Empaques">📦 Empaques</option>
+                            <option value="Mechas">🔥 Mechas / Pabilo</option>
+                            <option value="Otros">🔧 Otros</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cantidad actual</label>
+                        <input type="number" id="mat-qty" step="0.01" min="0" required placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidad de medida</label>
+                        <select id="mat-unit">
+                            <option value="kg">kg</option>
+                            <option value="g">g</option>
+                            <option value="L">L</option>
+                            <option value="ml">ml</option>
+                            <option value="unidades">unidades</option>
+                            <option value="rollos">rollos</option>
+                            <option value="metros">metros</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Stock mínimo (alerta)</label>
+                        <input type="number" id="mat-min" step="0.01" min="0" placeholder="Ej: 500">
+                    </div>
+                    <div class="form-group">
+                        <label>Costo unitario (opcional)</label>
+                        <input type="number" id="mat-cost" step="0.01" min="0" placeholder="Ej: 25000">
+                    </div>
+                </div>
+                <div class="form-group full">
+                    <label>Notas / Proveedor</label>
+                    <input type="text" id="mat-notes" placeholder="Ej: Proveedor: X, tiempo de entrega: 3 días">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn text-btn" id="btn-cancel-material-modal">Cancelar</button>
+                    <button type="submit" class="btn primary-btn">Guardar Material</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="js/app.js"></script>
+
     <script src="js/admin.js"></script>
     <script>
         // Restrict page access
