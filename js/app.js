@@ -475,7 +475,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     AuthSystem.init();
     await AdminSystem.init();
     AnimationSystem.init();
+    SocialFeedSystem.init();
 });
+
 // --- Vista Detallada de Producto ---
 function openProductDetail(product) {
     const modal = document.getElementById('product-detail-modal');
@@ -501,3 +503,81 @@ document.addEventListener('DOMContentLoaded', ()=>{
         });
     }
 });
+
+// =================== SOCIAL FEED SYSTEM ===================
+const SocialFeedSystem = {
+    DEFAULTS: {
+        tiktok: 'https://www.tiktok.com/@velass.esencia/video/7632349492309789972',
+        instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/'
+    },
+
+    getConfig() {
+        return {
+            tiktok: localStorage.getItem('social_tiktok') || this.DEFAULTS.tiktok,
+            instagram: localStorage.getItem('social_instagram') || this.DEFAULTS.instagram
+        };
+    },
+
+    extractTikTokId(url) {
+        const m = url.match(/video\/(\d+)/);
+        return m ? m[1] : null;
+    },
+
+    extractInstagramShortcode(url) {
+        // Matches /p/CODE/ or /reel/CODE/
+        const m = url.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
+        return m ? m[2] : null;
+    },
+
+    init() {
+        const section = document.getElementById('social-feed-section');
+        if (!section) return;
+
+        const config = this.getConfig();
+        this.renderTikTok(config.tiktok);
+        this.renderInstagram(config.instagram);
+    },
+
+    renderTikTok(url) {
+        const wrapper = document.getElementById('tiktok-embed-wrapper');
+        if (!wrapper) return;
+        const videoId = this.extractTikTokId(url);
+        if (!videoId) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Video no disponible</p>'; return; }
+
+        wrapper.innerHTML = `
+            <blockquote class="tiktok-embed"
+                cite="${url}"
+                data-video-id="${videoId}"
+                style="max-width:605px;min-width:325px;width:100%;">
+                <section>
+                    <a target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/@velass.esencia">@velass.esencia</a>
+                </section>
+            </blockquote>`;
+
+        // Re-process TikTok embeds if SDK already loaded
+        if (window.tiktok && window.tiktok.reload) {
+            window.tiktok.reload();
+        }
+    },
+
+    renderInstagram(url) {
+        const wrapper = document.getElementById('instagram-embed-wrapper');
+        if (!wrapper) return;
+        const code = this.extractInstagramShortcode(url);
+        if (!code) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Post no disponible</p>'; return; }
+
+        const cleanUrl = `https://www.instagram.com/reel/${code}/`;
+        wrapper.innerHTML = `
+            <blockquote class="instagram-media"
+                data-instgrm-permalink="${cleanUrl}"
+                data-instgrm-version="14"
+                style="background:#FFF;border:0;border-radius:12px;box-shadow:0 0 1px 0 rgba(0,0,0,.5),0 1px 10px 0 rgba(0,0,0,.15);margin:1px;max-width:540px;min-width:326px;padding:0;width:calc(100% - 2px);">
+            </blockquote>`;
+
+        // Re-process Instagram embeds if SDK already loaded
+        if (window.instgrm && window.instgrm.Embeds) {
+            window.instgrm.Embeds.process();
+        }
+    }
+};
+
