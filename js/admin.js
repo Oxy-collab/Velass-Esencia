@@ -1,17 +1,63 @@
 // =============================================
-// ADMIN DASHBOARD SYSTEM - Gestión Financiera
+// ADMIN DASHBOARD SYSTEM - Velass&Esencia
 // =============================================
 
 const API_BASE = '';
+
+// =================== TOAST SYSTEM ===================
+const Toast = {
+    show(message, type = 'success', duration = 3500) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `<span class="toast-icon">${icons[type] || '✅'}</span><span>${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('hide');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, duration);
+    }
+};
+
+// =================== CHART HELPERS ===================
+function getChartColors() {
+    const dark = document.body.getAttribute('data-theme') === 'dark';
+    return {
+        text: dark ? '#f4ecf7' : '#4A235A',
+        grid: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+        bg: dark ? 'rgba(30,20,40,0.0)' : 'rgba(255,255,255,0.0)'
+    };
+}
+
+function baseChartOptions(extra = {}) {
+    const c = getChartColors();
+    return {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                display: true,
+                labels: { color: c.text, font: { family: 'Outfit' } }
+            },
+            tooltip: { backgroundColor: 'rgba(30,20,40,0.85)', titleColor: '#fff', bodyColor: '#ddd' }
+        },
+        scales: {
+            x: { ticks: { color: c.text }, grid: { color: c.grid } },
+            y: { beginAtZero: true, ticks: { color: c.text }, grid: { color: c.grid } }
+        },
+        ...extra
+    };
+}
 
 // =================== FINANCE SYSTEM ===================
 const FinanceSystem = {
     transactions: [],
 
-    async init() {
+    init() {
         this.loadTransactions();
         this.renderTransactions();
-        this.updateDashboard();
         this.setupEventListeners();
     },
 
@@ -25,18 +71,10 @@ const FinanceSystem = {
     },
 
     addTransaction(type, category, amount, date, description) {
-        const transaction = {
-            id: Date.now(),
-            type,
-            category,
-            amount: parseFloat(amount),
-            date,
-            description,
-            created_at: new Date().toISOString()
-        };
-        this.transactions.unshift(transaction);
+        const t = { id: Date.now(), type, category, amount: parseFloat(amount), date, description, created_at: new Date().toISOString() };
+        this.transactions.unshift(t);
         this.saveTransactions();
-        return transaction;
+        return t;
     },
 
     deleteTransaction(id) {
@@ -44,51 +82,46 @@ const FinanceSystem = {
         this.saveTransactions();
     },
 
-    getTransactionsByMonth(month) {
-        return this.transactions.filter(t => t.date.startsWith(month));
-    },
+    getByMonth(month) { return this.transactions.filter(t => t.date.startsWith(month)); },
 
     getTotalIncome(month = null) {
-        let filtered = this.transactions.filter(t => t.type === 'ingreso');
-        if (month) filtered = filtered.filter(t => t.date.startsWith(month));
-        return filtered.reduce((sum, t) => sum + t.amount, 0);
+        let f = this.transactions.filter(t => t.type === 'ingreso');
+        if (month) f = f.filter(t => t.date.startsWith(month));
+        return f.reduce((s, t) => s + t.amount, 0);
     },
 
     getTotalExpense(month = null) {
-        let filtered = this.transactions.filter(t => t.type === 'egreso');
-        if (month) filtered = filtered.filter(t => t.date.startsWith(month));
-        return filtered.reduce((sum, t) => sum + t.amount, 0);
+        let f = this.transactions.filter(t => t.type === 'egreso');
+        if (month) f = f.filter(t => t.date.startsWith(month));
+        return f.reduce((s, t) => s + t.amount, 0);
     },
 
     setupEventListeners() {
         const form = document.getElementById('transaction-form');
-        if (form) {
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const type = document.getElementById('trans-type').value;
-                const category = document.getElementById('trans-category').value;
-                const amount = document.getElementById('trans-amount').value;
-                const date = document.getElementById('trans-date').value;
-                const description = document.getElementById('trans-description').value;
-
-                this.addTransaction(type, category, amount, date, description);
-                form.reset();
-                this.renderTransactions();
-                this.updateDashboard();
-                alert('✅ Transacción registrada exitosamente');
-            });
-        }
+        if (!form) return;
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const type = document.getElementById('trans-type').value;
+            const category = document.getElementById('trans-category').value;
+            const amount = document.getElementById('trans-amount').value;
+            const date = document.getElementById('trans-date').value;
+            const description = document.getElementById('trans-description').value;
+            this.addTransaction(type, category, amount, date, description);
+            form.reset();
+            document.getElementById('trans-date').valueAsDate = new Date();
+            this.renderTransactions();
+            FinanceUI.updateDashboard();
+            Toast.show(`Transacción de ${type} registrada exitosamente`);
+        });
     },
 
     renderTransactions() {
         const container = document.getElementById('transactions-list');
         if (!container) return;
-
         if (this.transactions.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #999;">No hay transacciones registradas</p>';
+            container.innerHTML = '<p style="text-align:center;color:#999;padding:2rem 0;">No hay transacciones registradas</p>';
             return;
         }
-
         container.innerHTML = this.transactions.map(t => `
             <div class="transaction-item ${t.type}">
                 <div class="trans-left">
@@ -96,14 +129,12 @@ const FinanceSystem = {
                     <div class="trans-details">
                         <div class="trans-category">${t.category}</div>
                         <div class="trans-desc">${t.description || 'Sin descripción'}</div>
-                        <div class="trans-date">${new Date(t.date).toLocaleDateString('es-CO')}</div>
+                        <div class="trans-date">${new Date(t.date + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
                     </div>
                 </div>
                 <div class="trans-right">
-                    <div class="trans-amount ${t.type}">
-                        ${t.type === 'ingreso' ? '+' : '-'}$${t.amount.toLocaleString('es-CO')}
-                    </div>
-                    <button class="btn-delete-trans" onclick="FinanceSystem.deleteTransaction(${t.id}); FinanceSystem.renderTransactions(); FinanceSystem.updateDashboard();" title="Eliminar">🗑️</button>
+                    <div class="trans-amount ${t.type}">${t.type === 'ingreso' ? '+' : '-'}$${t.amount.toLocaleString('es-CO')}</div>
+                    <button class="btn-delete-trans" title="Eliminar" onclick="FinanceSystem.deleteTransaction(${t.id});FinanceSystem.renderTransactions();FinanceUI.updateDashboard();">🗑️</button>
                 </div>
             </div>
         `).join('');
@@ -114,301 +145,212 @@ const FinanceSystem = {
 const FinanceUI = {
     updateDashboard() {
         const currentMonth = new Date().toISOString().slice(0, 7);
+        const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1);
+        const prevMonth = prevDate.toISOString().slice(0, 7);
+
         const income = FinanceSystem.getTotalIncome(currentMonth);
         const expense = FinanceSystem.getTotalExpense(currentMonth);
         const profit = income - expense;
+        const prevIncome = FinanceSystem.getTotalIncome(prevMonth);
+        const prevExpense = FinanceSystem.getTotalExpense(prevMonth);
+        const prevProfit = prevIncome - prevExpense;
 
-        // Update main stats
-        const incomeEl = document.getElementById('monthly-income');
-        const expenseEl = document.getElementById('monthly-expense');
-        const profitEl = document.getElementById('net-profit');
-        const profitPercentEl = document.getElementById('profit-percentage');
-        const incomeCountEl = document.getElementById('income-count');
-        const expenseCountEl = document.getElementById('expense-count');
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        const fmt = n => `$${n.toLocaleString('es-CO')}`;
 
-        if (incomeEl) incomeEl.textContent = `$${income.toLocaleString('es-CO')}`;
-        if (expenseEl) expenseEl.textContent = `$${expense.toLocaleString('es-CO')}`;
-        if (profitEl) profitEl.textContent = `$${profit.toLocaleString('es-CO')}`;
-        
-        const profitMargin = income > 0 ? ((profit / income) * 100).toFixed(1) : 0;
-        if (profitPercentEl) profitPercentEl.textContent = `${profitMargin > 0 ? '+' : ''}${profitMargin}%`;
+        set('monthly-income', fmt(income));
+        set('monthly-expense', fmt(expense));
+        set('net-profit', fmt(profit));
+
+        const margin = income > 0 ? ((profit / income) * 100).toFixed(1) : 0;
+        set('profit-percentage', `${margin > 0 ? '+' : ''}${margin}%`);
 
         const incomeCount = FinanceSystem.transactions.filter(t => t.type === 'ingreso' && t.date.startsWith(currentMonth)).length;
         const expenseCount = FinanceSystem.transactions.filter(t => t.type === 'egreso' && t.date.startsWith(currentMonth)).length;
-        
-        if (incomeCountEl) incomeCountEl.textContent = `${incomeCount} transacciones`;
-        if (expenseCountEl) expenseCountEl.textContent = `${expenseCount} transacciones`;
+        set('income-count', `${incomeCount} transacciones`);
+        set('expense-count', `${expenseCount} transacciones`);
 
-        // Update inventory count
+        // Trend indicators
+        this.setTrend('income-trend', income, prevIncome);
+        this.setTrend('expense-trend', expense, prevExpense);
+        this.setTrend('profit-trend', profit, prevProfit);
+
         AdminInventorySystem.updateStats();
-
-        // Update charts
         this.updateCharts(currentMonth);
     },
 
+    setTrend(id, current, prev) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (prev === 0) { el.className = 'stat-trend flat'; el.textContent = '→ Sin datos previos'; return; }
+        const pct = (((current - prev) / prev) * 100).toFixed(1);
+        if (current > prev) { el.className = 'stat-trend up'; el.textContent = `▲ +${pct}% vs mes anterior`; }
+        else if (current < prev) { el.className = 'stat-trend down'; el.textContent = `▼ ${pct}% vs mes anterior`; }
+        else { el.className = 'stat-trend flat'; el.textContent = '→ Igual que mes anterior'; }
+    },
+
     updateCharts(month) {
-        this.updateWeekChart(month);
+        this.updateWeekChart();
         this.updateExpenseChart(month);
+        this.updateMonthlyTrendChart();
         this.updateDailyIncomeChart(month);
         this.updateCategoryExpenseChart(month);
     },
 
-    updateWeekChart(month) {
+    updateWeekChart() {
         const ctx = document.getElementById('weekChart');
         if (!ctx) return;
-
         const today = new Date();
-        const last7Days = [];
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(d.getDate() - i);
-            last7Days.push(d.toISOString().slice(0, 10));
-        }
+        const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(today); d.setDate(d.getDate() - (6 - i));
+            return d.toISOString().slice(0, 10);
+        });
+        const labels = days.map(d => new Date(d + 'T12:00:00').toLocaleDateString('es-CO', { month: 'short', day: 'numeric' }));
+        const income = days.map(date => FinanceSystem.transactions.filter(t => t.type === 'ingreso' && t.date === date).reduce((s, t) => s + t.amount, 0));
+        const expense = days.map(date => FinanceSystem.transactions.filter(t => t.type === 'egreso' && t.date === date).reduce((s, t) => s + t.amount, 0));
 
-        const incomeData = last7Days.map(date => 
-            FinanceSystem.transactions
-                .filter(t => t.type === 'ingreso' && t.date === date)
-                .reduce((sum, t) => sum + t.amount, 0)
-        );
-        
-        const expenseData = last7Days.map(date =>
-            FinanceSystem.transactions
-                .filter(t => t.type === 'egreso' && t.date === date)
-                .reduce((sum, t) => sum + t.amount, 0)
-        );
-
-        const labels = last7Days.map(d => new Date(d).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' }));
-
-        if (window.weekChartInstance) window.weekChartInstance.destroy();
-
-        window.weekChartInstance = new Chart(ctx, {
+        if (window._weekChart) window._weekChart.destroy();
+        window._weekChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels,
                 datasets: [
-                    {
-                        label: 'Ingresos',
-                        data: incomeData,
-                        backgroundColor: 'rgba(76, 175, 80, 0.7)',
-                        borderColor: '#4CAF50',
-                        borderWidth: 2
-                    },
-                    {
-                        label: 'Egresos',
-                        data: expenseData,
-                        backgroundColor: 'rgba(244, 67, 54, 0.7)',
-                        borderColor: '#F44336',
-                        borderWidth: 2
-                    }
+                    { label: 'Ingresos', data: income, backgroundColor: 'rgba(76,175,80,0.75)', borderColor: '#4CAF50', borderWidth: 2, borderRadius: 6 },
+                    { label: 'Egresos', data: expense, backgroundColor: 'rgba(244,67,54,0.75)', borderColor: '#F44336', borderWidth: 2, borderRadius: 6 }
                 ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: { display: true }
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
-            }
+            options: baseChartOptions()
         });
     },
 
     updateExpenseChart(month) {
         const ctx = document.getElementById('expenseChart');
         if (!ctx) return;
+        const categories = ['Compra de Materiales', 'Servicios', 'Gastos Operativos', 'Otros'];
+        const data = categories.map(cat => FinanceSystem.transactions.filter(t => t.type === 'egreso' && t.category === cat && t.date.startsWith(month)).reduce((s, t) => s + t.amount, 0));
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#9966FF'];
+        const c = getChartColors();
 
-        const categories = ['Venta', 'Compra de Materiales', 'Servicios', 'Gastos Operativos', 'Otros'];
-        const data = categories.map(cat =>
-            FinanceSystem.transactions
-                .filter(t => t.type === 'egreso' && t.category === cat && t.date.startsWith(month))
-                .reduce((sum, t) => sum + t.amount, 0)
-        );
-
-        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
-
-        if (window.expenseChartInstance) window.expenseChartInstance.destroy();
-
-        window.expenseChartInstance = new Chart(ctx, {
+        if (window._expChart) window._expChart.destroy();
+        window._expChart = new Chart(ctx, {
             type: 'doughnut',
-            data: {
-                labels: categories,
-                datasets: [{
-                    data,
-                    backgroundColor: colors,
-                    borderColor: 'white',
-                    borderWidth: 2
-                }]
-            },
+            data: { labels: categories, datasets: [{ data, backgroundColor: colors, borderColor: 'transparent', borderWidth: 2 }] },
             options: {
                 responsive: true,
                 plugins: {
-                    legend: { position: 'bottom' }
+                    legend: { position: 'bottom', labels: { color: c.text, font: { family: 'Outfit' } } },
+                    tooltip: { backgroundColor: 'rgba(30,20,40,0.85)', titleColor: '#fff', bodyColor: '#ddd' }
                 }
             }
+        });
+    },
+
+    updateMonthlyTrendChart() {
+        const ctx = document.getElementById('monthlyTrendChart');
+        if (!ctx) return;
+        const year = new Date().getFullYear();
+        const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+        const labels = months.map(m => new Date(m + '-01T12:00:00').toLocaleDateString('es-CO', { month: 'short' }));
+        const income = months.map(m => FinanceSystem.getTotalIncome(m));
+        const expense = months.map(m => FinanceSystem.getTotalExpense(m));
+        const profit = months.map((_, i) => income[i] - expense[i]);
+
+        if (window._monthlyChart) window._monthlyChart.destroy();
+        window._monthlyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Ingresos', data: income, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.1)', borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 4, pointHoverRadius: 7 },
+                    { label: 'Egresos', data: expense, borderColor: '#F44336', backgroundColor: 'rgba(244,67,54,0.08)', borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 4, pointHoverRadius: 7 },
+                    { label: 'Ganancia Neta', data: profit, borderColor: '#9C27B0', backgroundColor: 'rgba(156,39,176,0.06)', borderWidth: 2, fill: false, tension: 0.4, borderDash: [5, 4], pointRadius: 3, pointHoverRadius: 6 }
+                ]
+            },
+            options: baseChartOptions()
         });
     },
 
     updateDailyIncomeChart(month) {
         const ctx = document.getElementById('dailyIncomeChart');
         if (!ctx) return;
-
-        const days = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+        const [y, m] = month.split('-').map(Number);
+        const days = new Date(y, m, 0).getDate();
         const dayLabels = Array.from({ length: days }, (_, i) => `${i + 1}`);
-        
-        const incomeData = dayLabels.map((day) => {
+        const incomeData = dayLabels.map(day => {
             const date = `${month}-${String(day).padStart(2, '0')}`;
-            return FinanceSystem.transactions
-                .filter(t => t.type === 'ingreso' && t.date === date)
-                .reduce((sum, t) => sum + t.amount, 0);
+            return FinanceSystem.transactions.filter(t => t.type === 'ingreso' && t.date === date).reduce((s, t) => s + t.amount, 0);
         });
 
-        if (window.dailyIncomeChartInstance) window.dailyIncomeChartInstance.destroy();
-
-        window.dailyIncomeChartInstance = new Chart(ctx, {
+        if (window._dailyChart) window._dailyChart.destroy();
+        window._dailyChart = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: dayLabels,
-                datasets: [{
-                    label: 'Ingresos Diarios',
-                    data: incomeData,
-                    borderColor: '#4CAF50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: true }
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
-            }
+            data: { labels: dayLabels, datasets: [{ label: 'Ingresos Diarios', data: incomeData, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.12)', borderWidth: 2, fill: true, tension: 0.4 }] },
+            options: baseChartOptions()
         });
     },
 
     updateCategoryExpenseChart(month) {
         const ctx = document.getElementById('categoryExpenseChart');
         if (!ctx) return;
+        const categories = ['Compra de Materiales', 'Servicios', 'Gastos Operativos', 'Otros'];
+        const data = categories.map(cat => FinanceSystem.transactions.filter(t => t.type === 'egreso' && t.category === cat && t.date.startsWith(month)).reduce((s, t) => s + t.amount, 0));
 
-        const categories = ['Venta', 'Compra de Materiales', 'Servicios', 'Gastos Operativos', 'Otros'];
-        const data = categories.map(cat =>
-            FinanceSystem.transactions
-                .filter(t => t.type === 'egreso' && t.category === cat && t.date.startsWith(month))
-                .reduce((sum, t) => sum + t.amount, 0)
-        );
-
-        if (window.categoryExpenseChartInstance) window.categoryExpenseChartInstance.destroy();
-
-        window.categoryExpenseChartInstance = new Chart(ctx, {
+        if (window._catChart) window._catChart.destroy();
+        window._catChart = new Chart(ctx, {
             type: 'bar',
-            data: {
-                labels: categories,
-                datasets: [{
-                    label: 'Gastos',
-                    data,
-                    backgroundColor: 'rgba(244, 67, 54, 0.7)',
-                    borderColor: '#F44336',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                scales: {
-                    x: { beginAtZero: true }
-                }
-            }
+            data: { labels: categories, datasets: [{ label: 'Gastos', data, backgroundColor: ['rgba(255,99,132,0.75)', 'rgba(54,162,235,0.75)', 'rgba(255,206,86,0.75)', 'rgba(153,102,255,0.75)'], borderWidth: 0, borderRadius: 6 }] },
+            options: { ...baseChartOptions(), indexAxis: 'y' }
         });
     }
 };
 
-// Exponer updateDashboard para actualizaciones externas
-function updateFinanceDashboard() {
-    FinanceUI.updateDashboard();
-}
+function updateFinanceDashboard() { FinanceUI.updateDashboard(); }
 
 // =================== TAB SYSTEM ===================
 const TabSystem = {
     init() {
-        const tabButtons = document.querySelectorAll('.tab-btn');
-        tabButtons.forEach(btn => {
-            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchTab(e.currentTarget.dataset.tab));
         });
     },
-
     switchTab(tabName) {
-        // Hide all content
-        document.querySelectorAll('.tab-content').forEach(el => {
-            el.classList.remove('active');
-        });
-
-        // Remove active from all buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-
-        // Show selected content
-        const tabContent = document.getElementById(tabName);
-        if (tabContent) {
-            tabContent.classList.add('active');
-        }
-
-        // Mark button as active
-        event.target.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        const content = document.getElementById(tabName);
+        if (content) content.classList.add('active');
+        const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+        if (btn) btn.classList.add('active');
     }
 };
 
 // =================== ADMIN INVENTORY SYSTEM ===================
 const AdminInventorySystem = {
-    async init() {
-        await this.renderInventory();
-        this.setupModal();
-    },
+    async init() { await this.renderInventory(); this.setupModal(); },
 
     async updateStats() {
         const products = await AppSystem.getProducts();
-        const inventoryCount = document.getElementById('inventory-count');
-        if (inventoryCount) {
-            const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
-            inventoryCount.textContent = totalStock;
-        }
+        const el = document.getElementById('inventory-count');
+        if (el) el.textContent = products.reduce((s, p) => s + (p.stock || 0), 0);
     },
 
     async renderInventory() {
         const tbody = document.getElementById('inventory-list');
         if (!tbody) return;
-
         const products = await AppSystem.getProducts();
+        const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
         tbody.innerHTML = '';
-        const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-
         products.forEach(p => {
-            let statusBadge = '✅ En Stock';
-            if (p.stock <= 5) statusBadge = '⚠️ Bajo Stock';
-            if (p.stock === 0) statusBadge = '❌ Agotado';
-
+            let badge = p.stock === 0 ? '❌ Agotado' : p.stock <= 5 ? '⚠️ Bajo Stock' : '✅ En Stock';
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>#${p.id}</td>
-                <td>${p.name}</td>
-                <td>${p.category}</td>
-                <td>${formatter.format(p.price)}</td>
-                <td>${p.stock}</td>
-                <td>${statusBadge}</td>
+                <td>#${p.id}</td><td>${p.name}</td><td>${p.category}</td>
+                <td>${fmt.format(p.price)}</td><td>${p.stock}</td><td>${badge}</td>
                 <td>
                     <button class="action-btn edit-btn" onclick="AdminSystem.editProduct(${p.id})">Editar</button>
                     <button class="action-btn del-btn" onclick="AdminSystem.deleteProduct(${p.id})">Eliminar</button>
-                </td>
-            `;
+                </td>`;
             tbody.appendChild(tr);
         });
-
         await this.updateStats();
     },
 
@@ -417,24 +359,10 @@ const AdminInventorySystem = {
         const btnAdd = document.getElementById('btn-add-product');
         const btnCancel = document.getElementById('btn-cancel-modal');
         const form = document.getElementById('product-form');
-
-        if (!btnAdd || !btnCancel || !form) return;
-
-        btnAdd.addEventListener('click', () => {
-            form.reset();
-            document.getElementById('prod-id').value = '';
-            document.getElementById('modal-title').textContent = 'Añadir Producto';
-            modal.classList.add('active');
-        });
-
-        btnCancel.addEventListener('click', () => {
-            modal.classList.remove('active');
-        });
-
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            AdminSystem.saveProduct();
-        });
+        if (!btnAdd || !form) return;
+        btnAdd.addEventListener('click', () => { form.reset(); document.getElementById('prod-id').value = ''; document.getElementById('modal-title').textContent = 'Añadir Producto'; modal.classList.add('active'); });
+        btnCancel.addEventListener('click', () => modal.classList.remove('active'));
+        form.addEventListener('submit', (e) => { e.preventDefault(); AdminSystem.saveProduct(); });
     }
 };
 
@@ -442,84 +370,121 @@ const AdminInventorySystem = {
 const AdminSystemExtended = {
     async editProduct(id) {
         const products = await AppSystem.getProducts();
-        const product = products.find(p => p.id === id);
-        if (product) {
-            document.getElementById('prod-id').value = product.id;
-            document.getElementById('prod-name').value = product.name;
-            if (document.getElementById('prod-category')) {
-                document.getElementById('prod-category').value = product.category;
-            }
-            document.getElementById('prod-desc').value = product.description;
-            document.getElementById('prod-price').value = product.price;
-            document.getElementById('prod-stock').value = product.stock;
-            document.getElementById('prod-img').value = product.img;
-
-            document.getElementById('modal-title').textContent = 'Editar Producto';
-            document.getElementById('product-modal').classList.add('active');
-        }
+        const p = products.find(p => p.id === id);
+        if (!p) return;
+        document.getElementById('prod-id').value = p.id;
+        document.getElementById('prod-name').value = p.name;
+        if (document.getElementById('prod-category')) document.getElementById('prod-category').value = p.category;
+        document.getElementById('prod-desc').value = p.description;
+        document.getElementById('prod-price').value = p.price;
+        document.getElementById('prod-stock').value = p.stock;
+        document.getElementById('prod-img').value = p.img;
+        document.getElementById('modal-title').textContent = 'Editar Producto';
+        document.getElementById('product-modal').classList.add('active');
     },
 
     async saveProduct() {
-        const idInput = document.getElementById('prod-id').value;
-        const name = document.getElementById('prod-name').value;
-        const category = document.getElementById('prod-category').value;
-        const description = document.getElementById('prod-desc').value;
-        const price = parseFloat(document.getElementById('prod-price').value);
-        const stock = parseInt(document.getElementById('prod-stock').value);
-        const img = document.getElementById('prod-img').value || '';
-
-        const body = { name, category, description, price, stock, img };
-
+        const id = document.getElementById('prod-id').value;
+        const body = {
+            name: document.getElementById('prod-name').value,
+            category: document.getElementById('prod-category').value,
+            description: document.getElementById('prod-desc').value,
+            price: parseFloat(document.getElementById('prod-price').value),
+            stock: parseInt(document.getElementById('prod-stock').value),
+            img: document.getElementById('prod-img').value || ''
+        };
         try {
-            let res;
-            if (idInput) {
-                res = await fetch(`${API_BASE}/api/products/${idInput}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-            } else {
-                res = await fetch(`${API_BASE}/api/products`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-            }
-
+            const url = id ? `${API_BASE}/api/products/${id}` : `${API_BASE}/api/products`;
+            const method = id ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             if (res.ok) {
                 document.getElementById('product-modal').classList.remove('active');
                 AdminInventorySystem.renderInventory();
-                alert('✅ Producto guardado exitosamente');
+                Toast.show('Producto guardado exitosamente');
             } else {
                 const data = await res.json();
-                alert(data.error || 'Error al guardar producto');
+                Toast.show(data.error || 'Error al guardar producto', 'error');
             }
-        } catch (err) {
-            alert('Error de conexión con el servidor');
-        }
+        } catch { Toast.show('Error de conexión con el servidor', 'error'); }
     },
 
     async deleteProduct(id) {
-        if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
-            try {
-                const res = await fetch(`${API_BASE}/api/products/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    AdminInventorySystem.renderInventory();
-                    alert('✅ Producto eliminado');
-                }
-            } catch (err) {
-                alert('Error de conexión con el servidor');
-            }
-        }
+        if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
+        try {
+            const res = await fetch(`${API_BASE}/api/products/${id}`, { method: 'DELETE' });
+            if (res.ok) { AdminInventorySystem.renderInventory(); Toast.show('Producto eliminado'); }
+        } catch { Toast.show('Error de conexión', 'error'); }
     }
 };
 
-// Override AdminSystem methods
 AdminSystem.editProduct = AdminSystemExtended.editProduct;
 AdminSystem.saveProduct = AdminSystemExtended.saveProduct;
 AdminSystem.deleteProduct = AdminSystemExtended.deleteProduct;
 
-// =================== INITIALIZE ON ADMIN PAGE ===================
+// =================== SOCIAL MEDIA ADMIN ===================
+const SocialMediaAdmin = {
+    DEFAULTS: {
+        tiktok: 'https://www.tiktok.com/@velass.esencia/video/7632349492309789972',
+        instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/'
+    },
+
+    load() {
+        return {
+            tiktok: localStorage.getItem('social_tiktok') || this.DEFAULTS.tiktok,
+            instagram: localStorage.getItem('social_instagram') || this.DEFAULTS.instagram
+        };
+    },
+
+    save(platform, url) {
+        localStorage.setItem(`social_${platform}`, url);
+    },
+
+    init() {
+        const config = this.load();
+        const tikInput = document.getElementById('tiktok-url');
+        const igInput = document.getElementById('instagram-url');
+        if (tikInput) tikInput.value = config.tiktok;
+        if (igInput) igInput.value = config.instagram;
+
+        const btnTiktok = document.getElementById('btn-save-tiktok');
+        const btnInstagram = document.getElementById('btn-save-instagram');
+
+        if (btnTiktok) {
+            btnTiktok.addEventListener('click', () => {
+                const url = tikInput.value.trim();
+                if (!url.includes('tiktok.com')) { Toast.show('Ingresa una URL válida de TikTok', 'error'); return; }
+                this.save('tiktok', url);
+                Toast.show('URL de TikTok guardada. Se verá en el catálogo.', 'success');
+                this.renderPreview('tiktok', url);
+            });
+        }
+        if (btnInstagram) {
+            btnInstagram.addEventListener('click', () => {
+                const url = igInput.value.trim();
+                if (!url.includes('instagram.com')) { Toast.show('Ingresa una URL válida de Instagram', 'error'); return; }
+                this.save('instagram', url);
+                Toast.show('URL de Instagram guardada. Se verá en el catálogo.', 'success');
+                this.renderPreview('instagram', url);
+            });
+        }
+
+        // Show current previews
+        this.renderPreview('tiktok', config.tiktok);
+        this.renderPreview('instagram', config.instagram);
+    },
+
+    renderPreview(platform, url) {
+        const container = document.getElementById(`${platform}-preview-mini`);
+        if (!container) return;
+        const label = platform === 'tiktok' ? '🎵 TikTok' : '📸 Instagram';
+        container.innerHTML = `
+            <p style="color:#4CAF50;font-weight:600;">✅ ${label} configurado</p>
+            <a href="${url}" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;color:var(--primary-color);word-break:break-all;">${url.substring(0, 60)}${url.length > 60 ? '…' : ''}</a>
+        `;
+    }
+};
+
+// =================== ADMIN PAGE INIT ===================
 const AdminPageInit = {
     async init() {
         if (!document.querySelector('.admin-page')) return;
@@ -528,33 +493,29 @@ const AdminPageInit = {
         FinanceSystem.init();
         FinanceUI.updateDashboard();
         AdminInventorySystem.init();
+        SocialMediaAdmin.init();
 
-        // Set today's date as default in transaction form
         const dateInput = document.getElementById('trans-date');
-        if (dateInput) {
-            dateInput.valueAsDate = new Date();
-        }
+        if (dateInput) dateInput.valueAsDate = new Date();
 
-        // Set current month in finance filter
         const financeMonth = document.getElementById('finance-month');
-        if (financeMonth) {
-            financeMonth.value = new Date().toISOString().slice(0, 7);
-        }
+        if (financeMonth) financeMonth.value = new Date().toISOString().slice(0, 7);
 
-        // Set current month in report filter
         const reportMonth = document.getElementById('report-month');
-        if (reportMonth) {
-            reportMonth.value = new Date().toISOString().slice(0, 7);
-        }
+        if (reportMonth) reportMonth.value = new Date().toISOString().slice(0, 7);
 
-        // Report generation
-        const btnGenerateReport = document.getElementById('btn-generate-report');
-        if (btnGenerateReport) {
-            btnGenerateReport.addEventListener('click', () => {
+        const btnReport = document.getElementById('btn-generate-report');
+        if (btnReport) {
+            btnReport.addEventListener('click', () => {
                 const month = document.getElementById('report-month').value;
                 this.generateReport(month);
             });
         }
+
+        // Re-render charts when theme changes
+        document.getElementById('theme-toggle')?.addEventListener('click', () => {
+            setTimeout(() => FinanceUI.updateDashboard(), 50);
+        });
     },
 
     generateReport(month) {
@@ -562,17 +523,17 @@ const AdminPageInit = {
         const expense = FinanceSystem.getTotalExpense(month);
         const profit = income - expense;
         const margin = income > 0 ? ((profit / income) * 100).toFixed(1) : 0;
+        const fmt = n => `$${n.toLocaleString('es-CO')}`;
 
-        document.getElementById('report-total-income').textContent = `$${income.toLocaleString('es-CO')}`;
-        document.getElementById('report-total-expense').textContent = `$${expense.toLocaleString('es-CO')}`;
-        document.getElementById('report-net-profit').textContent = `$${profit.toLocaleString('es-CO')}`;
-        document.getElementById('report-margin').textContent = `${margin}%`;
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('report-total-income', fmt(income));
+        set('report-total-expense', fmt(expense));
+        set('report-net-profit', fmt(profit));
+        set('report-margin', `${margin}%`);
 
         FinanceUI.updateCharts(month);
+        Toast.show('Reporte generado correctamente', 'info');
     }
 };
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    AdminPageInit.init();
-});
+document.addEventListener('DOMContentLoaded', () => { AdminPageInit.init(); });
