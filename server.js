@@ -44,7 +44,7 @@ db.serialize(() => {
     db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
         if (row && row.count === 0) {
             db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", [
-                'Admin', 'admin@velassesencia.com', 'admin', 'admin'
+                'Stephanie', 'Step.cam.gam97@gmail.com', 'admin', 'admin'
             ]);
         }
     });
