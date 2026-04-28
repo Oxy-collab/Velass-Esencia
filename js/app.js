@@ -132,8 +132,8 @@ const CatalogSystem = {
             </div>
             `;
 // click para abrir el detalle
-            card.addEventListener('click', ()=>openProductDetail(p));
-                grid.appendChild(card);
+                card.addEventListener('click', ()=>openProductDetail(p));
+                    grid.appendChild(card);
             });
             section.appendChild(grid);
             container.appendChild(section);
@@ -156,414 +156,191 @@ const CatalogSystem = {
     }
 };
 
-// Custom Candle System
-const CustomCandleSystem = {
-    init() {
-        const form = document.getElementById('custom-candle-form');
-        if (form) {
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const scent = document.getElementById('custom-scent').value;
-                const color = document.getElementById('custom-color').value;
-                const shape = document.getElementById('custom-shape').value;
+// ------------------ Cart System (nuevo) ------------------
+const CartSystem = {
+    key: 'velass_cart',
 
-                const text = `Hola! Quiero pedir una vela personalizada con la siguiente configuración:\n- Olor: ${scent}\n- Color: ${color}\n- Figura/Raza: ${shape}\n\nMi dirección de envío es: `;
-
-                CatalogSystem.openSocialWithText(text);
-                form.reset();
-            });
-        }
-    }
-};
-
-// Authentication System
-const AuthSystem = {
-    init() {
-        const loginForm = document.getElementById('login-form');
-        const registerForm = document.getElementById('register-form');
-
-        if (loginForm) {
-            loginForm.addEventListener('submit', this.handleLogin.bind(this));
-            registerForm.addEventListener('submit', this.handleRegister.bind(this));
-
-            document.getElementById('show-register').addEventListener('click', (e) => {
-                e.preventDefault();
-                document.getElementById('login-card').style.display = 'none';
-                document.getElementById('register-card').style.display = 'block';
-            });
-
-            document.getElementById('show-login').addEventListener('click', (e) => {
-                e.preventDefault();
-                document.getElementById('register-card').style.display = 'none';
-                document.getElementById('login-card').style.display = 'block';
-            });
-        }
+    getCart() {
+        return JSON.parse(localStorage.getItem(this.key) || '[]');
     },
 
-    async handleLogin(e) {
-        e.preventDefault();
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
+    saveCart(cart) {
+        localStorage.setItem(this.key, JSON.stringify(cart));
+    },
 
-        try {
-            const res = await fetch(`${API_BASE}/api/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+    updateCartBadge() {
+        const el = document.getElementById('cart-count');
+        if (!el) return;
+        const qty = this.getCart().reduce((s, i) => s + (i.qty || 0), 0);
+        el.textContent = qty > 0 ? qty : '';
+    },
+
+    addToCart(product) {
+        if (!product || (!product.id && !product.name)) return;
+        const id = product.id || product.name;
+        const cart = this.getCart();
+        const existing = cart.find(it => String(it.id) === String(id));
+        if (existing) {
+            existing.qty = (existing.qty || 1) + 1;
+        } else {
+            cart.push({
+                id,
+                name: product.name,
+                price: product.price || 0,
+                img: product.img || '',
+                qty: 1
             });
-
-            if (res.ok) {
-                const user = await res.json();
-                localStorage.setItem('currentUser', JSON.stringify({ name: user.name, email: user.email, role: user.role }));
-                window.location.href = user.role === 'admin' ? 'admin.html' : 'index.html';
-            } else {
-                alert('Credenciales incorrectas');
-            }
-        } catch (err) {
-            alert('Error de conexión con el servidor');
         }
+        this.saveCart(cart);
+        this.updateCartBadge();
+        if (window.Toast && Toast.show) Toast.show('Añadido al carrito', 'success');
+        else alert('Añadido al carrito');
     },
 
-    async handleRegister(e) {
-        e.preventDefault();
-        const name = document.getElementById('reg-name').value;
-        const email = document.getElementById('reg-email').value;
-        const password = document.getElementById('reg-password').value;
-
-        try {
-            const res = await fetch(`${API_BASE}/api/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password })
-            });
-
-            if (res.ok) {
-                const user = await res.json();
-                localStorage.setItem('currentUser', JSON.stringify({ name: user.name, email: user.email, role: user.role }));
-                window.location.href = 'index.html';
-            } else {
-                const data = await res.json();
-                alert(data.error || 'Error al registrarse');
-            }
-        } catch (err) {
-            alert('Error de conexión con el servidor');
-        }
-    }
-};
-
-// Admin System
-const AdminSystem = {
-    async init() {
-        if (document.querySelector('.admin-page')) {
-            await this.updateStats();
-            await this.renderInventory();
-            this.setupModal();
-        }
+    removeItem(id) {
+        const cart = this.getCart().filter(it => String(it.id) !== String(id));
+        this.saveCart(cart);
+        this.updateCartBadge();
     },
 
-    isAdmin() {
-        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        return currentUser && currentUser.role === 'admin';
+    clear() {
+        localStorage.removeItem(this.key);
+        this.updateCartBadge();
     },
 
-    async updateStats() {
-        const products = await AppSystem.getProducts();
-        const usersData = await AppSystem.getUsersCount();
-        const inventoryCount = document.getElementById('inventory-count');
-        const usersCount = document.getElementById('users-count');
-        if (inventoryCount) inventoryCount.textContent = products.length;
-        if (usersCount) usersCount.textContent = usersData.count;
-    },
+    openCart() {
+        const modal = document.getElementById('product-detail-modal');
+        const content = document.getElementById('product-detail-inner');
+        if (!modal || !content) return;
 
-    async renderInventory() {
-        const tbody = document.getElementById('inventory-list');
-        if (!tbody) return;
-        const products = await AppSystem.getProducts();
-        tbody.innerHTML = '';
+        const cart = this.getCart();
         const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
-        products.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>#${p.id}</td>
-                <td>${p.name}</td>
-                <td>${formatter.format(p.price)}</td>
-                <td>${p.stock}</td>
-                <td>
-                    <button class="action-btn edit-btn" onclick="AdminSystem.editProduct(${p.id})">Editar</button>
-                    <button class="action-btn del-btn" onclick="AdminSystem.deleteProduct(${p.id})">Eliminar</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        await this.updateStats();
-    },
-
-    setupModal() {
-        const modal = document.getElementById('product-modal');
-        const btnAdd = document.getElementById('btn-add-product');
-        const btnCancel = document.getElementById('btn-cancel-modal');
-        const form = document.getElementById('product-form');
-
-        if (!btnAdd || !btnCancel || !form) return;
-
-        btnAdd.addEventListener('click', () => {
-            form.reset();
-            document.getElementById('prod-id').value = '';
-            document.getElementById('modal-title').textContent = 'Añadir Producto';
+        if (!cart.length) {
+            content.innerHTML = '<h3>Tu carrito</h3><p>Tu carrito está vacío.</p><div style="margin-top:1rem;"><button class="btn text-btn" id="close-cart-btn">Cerrar</button></div>';
             modal.classList.add('active');
-        });
+            document.getElementById('close-cart-btn').addEventListener('click', () => modal.classList.remove('active'));
+            return;
+        }
 
-        btnCancel.addEventListener('click', () => {
+        let html = '<h3>Tu carrito</h3><div style="margin-top:1rem;">';
+        cart.forEach(it => {
+            html += `<div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:0.75rem;">
+                <img src="${it.img || 'https://via.placeholder.com/80x60?text=Img'}" alt="${it.name}" style="width:80px;height:60px;object-fit:cover;border-radius:8px;">
+                <div style="flex:1;">
+                  <strong>${it.name}</strong><br>
+                  <small>${formatter.format(it.price)} x ${it.qty}</small>
+                </div>
+                <div>
+                  <button class="btn text-btn remove-item-btn" data-id="${it.id}">Eliminar</button>
+                </div>
+            </div>`;
+        });
+        const total = cart.reduce((s, it) => s + (it.price * (it.qty || 1)), 0);
+        html += `</div><div style="margin-top:1rem;"><strong>Total: ${formatter.format(total)}</strong></div>
+            <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+              <button class="btn primary-btn" id="checkout-btn">Ir a pagar</button>
+              <button class="btn text-btn" id="close-cart-btn">Seguir comprando</button>
+            </div>`;
+
+        content.innerHTML = html;
+        modal.classList.add('active');
+
+        document.getElementById('close-cart-btn').addEventListener('click', () => modal.classList.remove('active'));
+        document.querySelectorAll('.remove-item-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                this.removeItem(id);
+                this.openCart(); // re-render
+            });
+        });
+        document.getElementById('checkout-btn').addEventListener('click', async () => {
             modal.classList.remove('active');
-        });
-
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveProduct();
+            await this.checkout();
         });
     },
 
-    async saveProduct() {
-        const idInput = document.getElementById('prod-id').value;
-        const name = document.getElementById('prod-name').value;
-        let category = document.getElementById('prod-category').value;
-        const description = document.getElementById('prod-desc').value;
-        const price = parseFloat(document.getElementById('prod-price').value);
-        const stock = parseInt(document.getElementById('prod-stock').value);
-        const img = document.getElementById('prod-img').value || '';
-
-        // Normalize category before sending
-        category = normalizeCategory(category);
-
-        const body = { name, category, description, price, stock, img };
+    async checkout() {
+        const cart = this.getCart();
+        if (!cart.length) {
+            if (window.Toast && Toast.show) Toast.show('El carrito está vacío', 'info');
+            else alert('El carrito está vacío');
+            return;
+        }
 
         try {
-            let res;
-            if (idInput) {
-                res = await fetch(`${API_BASE}/api/products/${idInput}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-            } else {
-                res = await fetch(`${API_BASE}/api/products`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
+            const res = await fetch(`${API_BASE}/api/checkout/wompi`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cart,
+                    redirect_url: window.location.origin + '/checkout-success.html'
+                })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Error iniciando pago');
             }
-
-            if (res.ok) {
-                document.getElementById('product-modal').classList.remove('active');
-                await this.renderInventory();
+            const data = await res.json();
+            if (data.checkout_url) {
+                window.location.href = data.checkout_url;
+            } else if (data.redirect_url) {
+                window.location.href = data.redirect_url;
             } else {
-                const data = await res.json();
-                alert(data.error || 'Error al guardar producto');
+                throw new Error('No se recibi\u00f3 una URL de checkout desde el servidor');
             }
         } catch (err) {
-            alert('Error de conexión con el servidor');
+            console.error('Checkout error:', err);
+            alert('No se pudo iniciar el pago. Revisa la consola para m\u00e1s detalles.');
         }
-    },
-
-    async editProduct(id) {
-        const products = await AppSystem.getProducts();
-        const product = products.find(p => p.id === id);
-        if (product) {
-            document.getElementById('prod-id').value = product.id;
-            document.getElementById('prod-name').value = product.name;
-            if (document.getElementById('prod-category')) {
-                document.getElementById('prod-category').value = product.category ? normalizeCategory(product.category) : 'Línea Bloom';
-            }
-            document.getElementById('prod-desc').value = product.description;
-            document.getElementById('prod-price').value = product.price;
-            document.getElementById('prod-stock').value = product.stock;
-            document.getElementById('prod-img').value = product.img;
-
-            document.getElementById('modal-title').textContent = 'Editar Producto';
-            document.getElementById('product-modal').classList.add('active');
-        }
-    },
-
-    async deleteProduct(id) {
-        if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
-            try {
-                const res = await fetch(`${API_BASE}/api/products/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    await this.renderInventory();
-                }
-            } catch (err) {
-                alert('Error de conexión con el servidor');
-            }
-        }
-    }
-};
-
-// Animation System
-const AnimationSystem = {
-    init() {
-        const reveals = document.querySelectorAll('.reveal');
-        if ('IntersectionObserver' in window) {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('active');
-                    }
-                });
-            }, { threshold: 0.1 });
-
-            reveals.forEach(reveal => {
-                observer.observe(reveal);
-            });
-        } else {
-            reveals.forEach(reveal => reveal.classList.add('active'));
-        }
-
-        setTimeout(() => {
-            reveals.forEach(reveal => {
-                const windowHeight = window.innerHeight;
-                const elementTop = reveal.getBoundingClientRect().top;
-                if (elementTop < windowHeight - 50) {
-                    reveal.classList.add('active');
-                }
-            });
-        }, 100);
-    }
-};
-
-// Theme System
-const ThemeSystem = {
-    init() {
-        const toggleBtn = document.getElementById('theme-toggle');
-        const iconPath = document.querySelector('#moon-icon path');
-        const currentTheme = localStorage.getItem('theme') || 'light';
-
-        const setDark = () => {
-            document.body.setAttribute('data-theme', 'dark');
-            if (iconPath) iconPath.setAttribute('d', 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z');
-        };
-
-        const setLight = () => {
-            document.body.removeAttribute('data-theme');
-            if (iconPath) iconPath.setAttribute('d', 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z');
-        };
-
-        if (currentTheme === 'dark') setDark();
-
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                const isDark = document.body.getAttribute('data-theme') === 'dark';
-                if (isDark) {
-                    setLight();
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    setDark();
-                    localStorage.setItem('theme', 'dark');
-                }
-            });
-        }
-    }
-};
-
-// =================== SOCIAL FEED SYSTEM ===================
-const SocialFeedSystem = {
-    DEFAULTS: {
-        tiktok: 'https://www.tiktok.com/@velass.esencia/video/7632349492309789972',
-        instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/'
-    },
-
-    getConfig() {
-        return {
-            tiktok: localStorage.getItem('social_tiktok') || this.DEFAULTS.tiktok,
-            instagram: localStorage.getItem('social_instagram') || this.DEFAULTS.instagram
-        };
-    },
-
-    extractTikTokId(url) {
-        const m = url.match(/video\/(\d+)/);
-        return m ? m[1] : null;
-    },
-
-    extractInstagramShortcode(url) {
-        const m = url.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
-        return m ? m[2] : null;
     },
 
     init() {
-        const section = document.getElementById('social-feed-section');
-        if (!section) return;
-        const config = this.getConfig();
-        this.renderTikTok(config.tiktok);
-        this.renderInstagram(config.instagram);
-    },
-
-    renderTikTok(url) {
-        const wrapper = document.getElementById('tiktok-embed-wrapper');
-        if (!wrapper) return;
-        const videoId = this.extractTikTokId(url);
-        if (!videoId) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Video no disponible</p>'; return; }
-        wrapper.innerHTML = `
-            <blockquote class="tiktok-embed"
-                cite="${url}"
-                data-video-id="${videoId}"
-                style="max-width:605px;min-width:325px;width:100%;">
-                <section>
-                    <a target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/@velass.esencia">@velass.esencia</a>
-                </section>
-            </blockquote>`;
-        if (window.tiktok && window.tiktok.reload) window.tiktok.reload();
-    },
-
-    renderInstagram(url) {
-        const wrapper = document.getElementById('instagram-embed-wrapper');
-        if (!wrapper) return;
-        const code = this.extractInstagramShortcode(url);
-        if (!code) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Post no disponible</p>'; return; }
-        const cleanUrl = `https://www.instagram.com/reel/${code}/`;
-        wrapper.innerHTML = `
-            <blockquote class="instagram-media"
-                data-instgrm-permalink="${cleanUrl}"
-                data-instgrm-version="14"
-                style="background:#FFF;border:0;border-radius:12px;box-shadow:0 0 1px 0 rgba(0,0,0,.5),0 1px 10px 0 rgba(0,0,0,.15);margin:1px;max-width:540px;min-width:326px;padding:0;width:calc(100% - 2px);">
-            </blockquote>`;
-        if (window.instgrm && window.instgrm.Embeds) window.instgrm.Embeds.process();
+        this.updateCartBadge();
+        window.CartSystem = this;
     }
 };
 
-// Initialize App
-document.addEventListener('DOMContentLoaded', async () => {
-    ThemeSystem.init();
-    await AppSystem.init();
-    await CatalogSystem.init();
-    CustomCandleSystem.init();
-    AuthSystem.init();
-    await AdminSystem.init();
-    AnimationSystem.init();
-    SocialFeedSystem.init();
-
-    // Cerrar modal de detalle de producto
-    const m = document.getElementById('product-detail-modal');
-    if (m) {
-        m.addEventListener('click', e => {
-            if (e.target === m || e.target.id === 'close-detail-modal') m.classList.remove('active');
-        });
-    }
+// Inicializar badge al cargar documento
+document.addEventListener('DOMContentLoaded', () => {
+    try { CartSystem.init(); } catch (e) { console.error(e); }
 });
 
-// --- Vista Detallada de Producto ---
+// --- Vista Detallada de Producto (reemplazada) ---
 function openProductDetail(product) {
     const modal = document.getElementById('product-detail-modal');
     const content = document.getElementById('product-detail-inner');
     if (!modal || !content) return;
+    const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
     content.innerHTML = `
         <img src="${product.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente'}" alt="${product.name}">
         <h2 style="margin-top:0">${product.name}</h2>
-        <p><strong>Categoría:</strong> ${product.category}</p>
-        <p><strong>Descripción:</strong> ${product.description}</p>
-        <p><strong>Precio:</strong> ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(product.price)}</p>
-        <button class="btn primary-btn" onclick="CatalogSystem.buyProduct('${product.name.replace(/'/g,'\\\\\'')}')">Pedir por WhatsApp/IG</button>
+        <p><strong>Categoría:</strong> ${product.category || '-'}</p>
+        <p><strong>Descripci\u00f3n:</strong> ${product.description || ''}</p>
+        <p><strong>Precio:</strong> ${formatter.format(product.price || 0)}</p>
+        <div style="margin-top:1rem;">
+            <button id="add-to-cart-btn" class="btn primary-btn">Agregar al carrito</button>
+            <button id="buy-now-btn" class="btn secondary-btn">Comprar ahora</button>
+        </div>
     `;
     modal.classList.add('active');
+
+    // listeners
+    const addBtn = document.getElementById('add-to-cart-btn');
+    const buyBtn = document.getElementById('buy-now-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            CartSystem.addToCart(product);
+        });
+    }
+    if (buyBtn) {
+        buyBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            CartSystem.addToCart(product);
+            await CartSystem.checkout();
+        });
+    }
 }
 
+// (rest of file continues...)
