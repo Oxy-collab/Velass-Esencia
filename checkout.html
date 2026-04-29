@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velass&amp;Esencia - Panel Admin</title>
+    <meta name="description" content="Panel de administración Velass&amp;Esencia – gestión de finanzas, inventario y redes sociales.">
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+
+<body class="admin-page">
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <header class="navbar">
+        <button id="theme-toggle" class="theme-btn" title="Alternar Modo Oscuro">
+            <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2"
+                fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+        </button>
+        <div class="logo-container">
+            <img src="https://cdn.phototourl.com/free/2026-03-25-86eb837e-6f5a-4227-a92e-9e78d32f9aa2.png"
+                alt="Velass&Esencia Logo" class="logo-img">
+        </div>
+        <nav>
+            <a href="index.html">Catálogo</a>
+            <a href="#" id="nav-logout">Cerrar Sesión</a>
+        </nav>
+    </header>
+
+    <main class="admin-container">
+        <!-- Tabs Navigation -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+            <button class="tab-btn" data-tab="finances">💰 Finanzas</button>
+            <button class="tab-btn" data-tab="inventory">📦 Inventario</button>
+            <button class="tab-btn" data-tab="reports">📈 Reportes</button>
+            <button class="tab-btn" data-tab="social">📱 Redes Sociales</button>
+        </div>
+
+        <!-- =================== DASHBOARD TAB =================== -->
+        <div id="dashboard" class="tab-content active">
+            <section class="dashboard">
+                <h2>Resumen Rápido</h2>
+                <div class="stats-grid">
+                    <div class="stat-card success">
+                        <h3>Ingresos Este Mes</h3>
+                        <p class="stat-value" id="monthly-income">$0</p>
+                        <p class="stat-detail" id="income-count">0 transacciones</p>
+                        <span class="stat-trend flat" id="income-trend">→ Sin datos previos</span>
+                    </div>
+                    <div class="stat-card danger">
+                        <h3>Egresos Este Mes</h3>
+                        <p class="stat-value" id="monthly-expense">$0</p>
+                        <p class="stat-detail" id="expense-count">0 transacciones</p>
+                        <span class="stat-trend flat" id="expense-trend">→ Sin datos previos</span>
+                    </div>
+                    <div class="stat-card primary">
+                        <h3>Ganancia Neta</h3>
+                        <p class="stat-value" id="net-profit">$0</p>
+                        <p class="stat-detail" id="profit-percentage">+0%</p>
+                        <span class="stat-trend flat" id="profit-trend">→ Sin datos previos</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Productos en Stock</h3>
+                        <p class="stat-value" id="inventory-count">0</p>
+                        <p class="stat-detail">Unidades disponibles</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Grid -->
+            <section class="chart-section">
+                <div class="chart-container">
+                    <h3>📅 Comparativa Ingresos vs Egresos (7 días)</h3>
+                    <canvas id="weekChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>🍩 Distribución de Gastos del Mes</h3>
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                <div class="chart-container chart-full-row">
+                    <h3>📈 Tendencia Mensual del Año (Ingresos vs Egresos)</h3>
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== FINANCES TAB =================== -->
+        <div id="finances" class="tab-content">
+            <section class="finance-section">
+                <div class="finance-header">
+                    <h2>Gestión Financiera</h2>
+                    <div class="date-filter">
+                        <input type="month" id="finance-month" class="form-control">
+                    </div>
+                </div>
+
+                <!-- Add Transaction Form -->
+                <div class="transaction-form-container">
+                    <h3>Registrar Transacción</h3>
+                    <form id="transaction-form" class="transaction-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tipo</label>
+                                <select id="trans-type" required>
+                                    <option value="ingreso">💰 Ingreso</option>
+                                    <option value="egreso">💸 Egreso</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Categoría</label>
+                                <select id="trans-category" required>
+                                    <option value="Venta">Venta</option>
+                                    <option value="Compra de Materiales">Compra de Materiales</option>
+                                    <option value="Servicios">Servicios</option>
+                                    <option value="Gastos Operativos">Gastos Operativos</option>
+                                    <option value="Otros">Otros</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Monto ($)</label>
+                                <input type="number" id="trans-amount" step="0.01" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha</label>
+                                <input type="date" id="trans-date" required>
+                            </div>
+                        </div>
+                        <div class="form-group full">
+                            <label>Descripción</label>
+                            <input type="text" id="trans-description" placeholder="Ej: Venta a cliente X">
+                        </div>
+                        <button type="submit" class="btn primary-btn">Registrar Transacción</button>
+                    </form>
+                </div>
+
+                <!-- Transactions List -->
+                <div class="transactions-container">
+                    <h3>Historial de Transacciones</h3>
+                    <div class="transactions-list" id="transactions-list">
+                        <p style="text-align: center; color: #999;">No hay transacciones registradas</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== INVENTORY TAB =================== -->
+        <div id="inventory" class="tab-content">
+
+            <!-- Sub-tabs -->
+            <div class="inv-subtabs">
+                <button class="inv-subtab-btn active" data-subtab="products">📦 Productos del Catálogo</button>
+                <button class="inv-subtab-btn" data-subtab="materials">🧪 Materias Primas</button>
+            </div>
+
+            <!-- ---- SUB-TAB: PRODUCTOS ---- -->
+            <div id="inv-products" class="inv-subtab-content active">
+                <section class="inventory">
+                    <div class="inventory-header">
+                        <h2>Productos del Catálogo</h2>
+                        <button class="btn secondary-btn" id="btn-add-product">+ Añadir Producto</button>
+                    </div>
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-list">
+                            <!-- Inventory items -->
+                        </tbody>
+                    </table>
+                </section>
+            </div><!-- /inv-products -->
+
+            <!-- ---- SUB-TAB: MATERIAS PRIMAS ---- -->
+            <div id="inv-materials" class="inv-subtab-content">
+                <section class="inventory">
+                    <div class="inventory-header">
+                        <h2>🧪 Materias Primas</h2>
+                        <button class="btn secondary-btn" id="btn-add-material">+ Añadir Material</button>
+                    </div>
+
+                    <!-- Alertas de stock bajo -->
+                    <div id="materials-alerts"></div>
+
+                    <!-- Resumen rápido de materiales -->
+                    <div class="materials-summary" id="materials-summary"></div>
+
+                    <table class="inventory-table" id="materials-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Cantidad</th>
+                                <th>Unidad</th>
+                                <th>Stock Mínimo</th>
+                                <th>Estado</th>
+                                <th>Notas</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materials-list">
+                            <!-- Materials inserted by JS -->
+                        </tbody>
+                    </table>
+                </section>
+            </div><!-- /inv-materials -->
+
+        </div><!-- /inventory tab-content -->
+
+        <!-- =================== REPORTS TAB =================== -->
+        <div id="reports" class="tab-content">
+            <section class="reports-section">
+                <h2>Reportes y Análisis</h2>
+                
+                <div class="report-filters">
+                    <input type="month" id="report-month" class="form-control">
+                    <button class="btn primary-btn" id="btn-generate-report">Generar Reporte</button>
+                </div>
+
+                <div class="reports-grid">
+                    <div class="chart-container">
+                        <h3>📅 Ingresos Diarios del Mes</h3>
+                        <canvas id="dailyIncomeChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>📊 Egresos por Categoría</h3>
+                        <canvas id="categoryExpenseChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="report-summary">
+                    <h3>Resumen del Período</h3>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <span class="summary-label">Total Ingresos:</span>
+                            <span class="summary-value" id="report-total-income">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Total Egresos:</span>
+                            <span class="summary-value" id="report-total-expense">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Ganancia Neta:</span>
+                            <span class="summary-value success" id="report-net-profit">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Margen de Ganancia:</span>
+                            <span class="summary-value" id="report-margin">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== SOCIAL MEDIA TAB =================== -->
+        <div id="social" class="tab-content">
+            <section class="social-admin-section">
+                <h2>Configurar Novedades en la Página Principal</h2>
+                <p style="color: #999; margin-top: 0.5rem; margin-bottom: 0;">
+                    Ingresa las URLs de los posts que quieres mostrar en la sección "Últimas Novedades" del catálogo.
+                </p>
+
+                <div class="social-admin-grid">
+                    <!-- TikTok Card -->
+                    <div class="social-admin-card">
+                        <h3>🎵 TikTok</h3>
+                        <div class="form-group">
+                            <label>URL del video de TikTok</label>
+                            <input type="url" id="tiktok-url" class="form-control"
+                                placeholder="https://www.tiktok.com/@velass.esencia/video/...">
+                        </div>
+                        <button class="btn primary-btn" id="btn-save-tiktok" style="width:100%;">Guardar TikTok</button>
+                        <div class="social-preview-mini" id="tiktok-preview-mini">
+                            <p>Vista previa aparecerá aquí después de guardar</p>
+                        </div>
+                    </div>
+
+                    <!-- Instagram Card -->
+                    <div class="social-admin-card">
+                        <h3>📸 Instagram</h3>
+                        <div class="form-group">
+                            <label>URL del Reel o post de Instagram</label>
+                            <input type="url" id="instagram-url" class="form-control"
+                                placeholder="https://www.instagram.com/reel/...">
+                        </div>
+                        <button class="btn primary-btn" id="btn-save-instagram" style="width:100%;">Guardar Instagram</button>
+                        <div class="social-preview-mini" id="instagram-preview-mini">
+                            <p>Vista previa aparecerá aquí después de guardar</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(142,68,173,0.07); border-radius: 12px; border-left: 4px solid var(--primary-color);">
+                    <strong>💡 Tip:</strong> Cuando actualices las URLs aquí, los cambios se reflejarán automáticamente en la sección "Últimas Novedades" de la página del catálogo para todos los visitantes del sitio.
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modal for Add/Edit Product -->
+    <div class="modal-overlay" id="product-modal">
+        <div class="modal-card">
+            <h3 id="modal-title">Añadir Producto</h3>
+            <form id="product-form">
+                <input type="hidden" id="prod-id">
+                <div class="form-group">
+                    <label>Nombre del Producto</label>
+                    <input type="text" id="prod-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select id="prod-category" required>
+                        <option value="Línea Bloom">Línea Bloom</option>
+                        <option value="Mini Scents">Mini Scents</option>
+                        <option value="Terrario">Terrario</option>
+                        <option value="Linea Pet soul">Linea Pet soul</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea id="prod-desc" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Precio ($)</label>
+                    <input type="number" id="prod-price" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Stock</label>
+                    <input type="number" id="prod-stock" required>
+                </div>
+                <div class="form-group">
+                    <label>URL de Imagen</label>
+                    <input type="text" id="prod-img" placeholder="ej. https://images.unsplash.com/photo-xxx">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn text-btn" id="btn-cancel-modal">Cancelar</button>
+                    <button type="submit" class="btn primary-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Add/Edit Material -->
+    <div class="modal-overlay" id="material-modal">
+        <div class="modal-card">
+            <h3 id="material-modal-title">Añadir Materia Prima</h3>
+            <form id="material-form">
+                <input type="hidden" id="mat-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre del Material</label>
+                        <input type="text" id="mat-name" placeholder="Ej: Cera de soja" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select id="mat-category" required>
+                            <option value="Cera">🕯️ Cera</option>
+                            <option value="Esencias">🌸 Esencias</option>
+                            <option value="Moldes">🔲 Moldes</option>
+                            <option value="Colorantes">🎨 Colorantes</option>
+                            <option value="Empaques">📦 Empaques</option>
+                            <option value="Mechas">🔥 Mechas / Pabilo</option>
+                            <option value="Otros">🔧 Otros</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cantidad actual</label>
+                        <input type="number" id="mat-qty" step="0.01" min="0" required placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidad de medida</label>
+                        <select id="mat-unit">
+                            <option value="kg">kg</option>
+                            <option value="g">g</option>
+                            <option value="L">L</option>
+                            <option value="ml">ml</option>
+                            <option value="unidades">unidades</option>
+                            <option value="rollos">rollos</option>
+                            <option value="metros">metros</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Stock mínimo (alerta)</label>
+                        <input type="number" id="mat-min" step="0.01" min="0" placeholder="Ej: 500">
+                    </div>
+                    <div class="form-group">
+                        <label>Costo unitario (opcional)</label>
+                        <input type="number" id="mat-cost" step="0.01" min="0" placeholder="Ej: 25000">
+                    </div>
+                </div>
+                <div class="form-group full">
+                    <label>Notas / Proveedor</label>
+                    <input type="text" id="mat-notes" placeholder="Ej: Proveedor: X, tiempo de entrega: 3 días">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn text-btn" id="btn-cancel-material-modal">Cancelar</button>
+                    <button type="submit" class="btn primary-btn">Guardar Material</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+
+    <script src="js/cart.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/orders-admin.js"></script>
+    <script>
+        // Restrict page access
+        setTimeout(() => {
+            if (!AdminSystem.isAdmin()) {
+                alert('Acceso denegado. Redirigiendo al inicio...');
+                window.location.href = 'index.html';
+            }
+        }, 100);
+    </script>
+</body>
+
+</html>

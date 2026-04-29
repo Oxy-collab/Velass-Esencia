@@ -1,492 +1,406 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Velass&Esencia - Carrito</title>
-    <link rel="stylesheet" href="css/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        /* ===== CART PAGE STYLES ===== */
-        .cart-page main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+// =============================================
+// Velass&Esencia - Cart & Checkout System
+// =============================================
 
-        .cart-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-        .cart-header h1 { font-size: 1.8rem; }
-        .cart-badge {
-            background: var(--primary-color);
-            color: white;
-            border-radius: 50%;
-            width: 28px; height: 28px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.85rem; font-weight: 600;
-        }
+const CartSystem = {
+    // Cargar carrito desde localStorage (por usuario)
+    getCart() {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        const key = user ? `cart_${user.id}` : 'cart_guest';
+        try { return JSON.parse(localStorage.getItem(key)) || []; }
+        catch { return []; }
+    },
 
-        /* Cart Layout */
-        .cart-layout {
-            display: grid;
-            grid-template-columns: 1fr 340px;
-            gap: 2rem;
-            align-items: start;
-        }
-        @media (max-width: 720px) {
-            .cart-layout { grid-template-columns: 1fr; }
-        }
+    saveCart(items) {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        const key = user ? `cart_${user.id}` : 'cart_guest';
+        localStorage.setItem(key, JSON.stringify(items));
+        this.updateCartBadge();
+    },
 
-        /* Cart Items */
-        .cart-items-section { display: flex; flex-direction: column; gap: 1rem; }
+    addItem(product, qty = 1) {
+        const cart = this.getCart();
+        const existing = cart.find(i => i.id === product.id);
+        if (existing) {
+            existing.quantity = Math.min(existing.quantity + qty, product.stock);
+        } else {
+            cart.push({ id: product.id, name: product.name, price: product.price, img: product.img, stock: product.stock, quantity: qty });
+        }
+        this.saveCart(cart);
+        this.showToast(`"${product.name}" añadido al carrito 🛍️`);
+    },
 
-        .cart-item {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            padding: 1.2rem;
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            transition: var(--transition);
-            animation: fadeUp 0.4s ease-out backwards;
-        }
-        .cart-item:hover { transform: translateX(4px); }
+    removeItem(productId) {
+        const cart = this.getCart().filter(i => i.id !== productId);
+        this.saveCart(cart);
+    },
 
-        .cart-item-img {
-            width: 80px; height: 80px;
-            border-radius: 10px;
-            object-fit: cover;
-            flex-shrink: 0;
-            background: var(--accent-color);
+    updateQty(productId, qty) {
+        const cart = this.getCart();
+        const item = cart.find(i => i.id === productId);
+        if (item) {
+            if (qty <= 0) return this.removeItem(productId);
+            item.quantity = Math.min(qty, item.stock);
+            this.saveCart(cart);
         }
-        .cart-item-info { flex: 1; min-width: 0; }
-        .cart-item-name { font-weight: 600; font-size: 1rem; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cart-item-category { font-size: 0.78rem; color: var(--primary-color); opacity: 0.8; margin-bottom: 0.5rem; }
-        .cart-item-price { font-weight: 600; color: var(--primary-color); font-size: 1rem; }
+    },
 
-        .cart-item-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-shrink: 0;
-        }
-        .qty-btn {
-            width: 30px; height: 30px;
-            border: 2px solid var(--primary-color);
-            background: transparent;
-            color: var(--primary-color);
-            border-radius: 50%;
-            font-size: 1.1rem;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: var(--transition);
-            font-weight: 600;
-        }
-        .qty-btn:hover { background: var(--primary-color); color: white; }
-        .qty-display { font-weight: 600; min-width: 24px; text-align: center; font-size: 1rem; }
+    clearCart() {
+        this.saveCart([]);
+    },
 
-        .remove-item-btn {
-            background: transparent;
-            border: none;
-            color: #c0392b;
-            cursor: pointer;
-            padding: 0.3rem;
-            border-radius: 50%;
-            transition: var(--transition);
-            display: flex; align-items: center;
-            opacity: 0.6;
-        }
-        .remove-item-btn:hover { opacity: 1; background: rgba(192, 57, 43, 0.1); }
+    getTotal() {
+        return this.getCart().reduce((sum, i) => sum + i.price * i.quantity, 0);
+    },
 
-        .cart-empty {
-            text-align: center;
-            padding: 4rem 2rem;
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-        }
-        .cart-empty svg { opacity: 0.3; margin-bottom: 1rem; }
-        .cart-empty h3 { font-size: 1.3rem; margin-bottom: 0.5rem; opacity: 0.7; }
-        .cart-empty p { opacity: 0.5; margin-bottom: 1.5rem; }
+    getCount() {
+        return this.getCart().reduce((sum, i) => sum + i.quantity, 0);
+    },
 
-        /* Order Summary */
-        .order-summary {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            padding: 1.5rem;
-            position: sticky;
-            top: 90px;
+    updateCartBadge() {
+        const badge = document.getElementById('cart-badge');
+        const count = this.getCount();
+        if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'flex' : 'none';
         }
-        .order-summary h2 { font-size: 1.2rem; margin-bottom: 1.5rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--input-border); }
+    },
 
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.8rem;
-            font-size: 0.95rem;
-            opacity: 0.8;
+    showToast(msg) {
+        let toast = document.getElementById('cart-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'cart-toast';
+            document.body.appendChild(toast);
         }
-        .summary-row.total {
-            font-weight: 600;
-            font-size: 1.15rem;
-            opacity: 1;
-            padding-top: 0.8rem;
-            border-top: 1px solid var(--input-border);
-            margin-top: 0.5rem;
-            color: var(--primary-color);
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+    },
+
+    // Renderizar carrito en cart.html
+    renderCart() {
+        const container = document.getElementById('cart-items-container');
+        const summaryEl = document.getElementById('cart-summary');
+        if (!container) return;
+        const cart = this.getCart();
+        const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+        if (cart.length === 0) {
+            container.innerHTML = `
+                <div class="empty-cart">
+                    <div class="empty-cart-icon">🛍️</div>
+                    <h3>Tu carrito está vacío</h3>
+                    <p>Explora nuestro catálogo y añade tus velas favoritas.</p>
+                    <a href="index.html" class="btn primary-btn">Ver Catálogo</a>
+                </div>`;
+            if (summaryEl) summaryEl.style.display = 'none';
+            return;
         }
 
-        .checkout-btn {
-            width: 100%;
-            margin-top: 1.2rem;
-            padding: 1rem;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 30px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        .checkout-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(142, 68, 173, 0.35); filter: brightness(1.1); }
-        .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        if (summaryEl) summaryEl.style.display = 'block';
 
-        .wompi-badge {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            margin-top: 0.8rem;
-            font-size: 0.75rem;
-            opacity: 0.5;
-        }
-
-        /* Checkout Modal / Steps */
-        .checkout-modal {
-            display: none;
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.6);
-            z-index: 10000;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-            backdrop-filter: blur(4px);
-        }
-        .checkout-modal.active { display: flex; }
-
-        .checkout-card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            width: 100%;
-            max-width: 480px;
-            max-height: 90vh;
-            overflow-y: auto;
-            animation: slideUp 0.3s ease-out;
-        }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        .checkout-card-header {
-            padding: 1.5rem 1.5rem 1rem;
-            border-bottom: 1px solid var(--input-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky; top: 0;
-            background: var(--card-bg);
-            border-radius: 20px 20px 0 0;
-            z-index: 1;
-        }
-        .checkout-card-header h3 { font-size: 1.15rem; }
-        .close-modal-btn {
-            background: transparent; border: none; cursor: pointer;
-            color: var(--text-color); opacity: 0.5;
-            padding: 0.3rem; border-radius: 50%;
-            transition: var(--transition); display: flex;
-        }
-        .close-modal-btn:hover { opacity: 1; background: rgba(0,0,0,0.1); }
-
-        /* Step indicator */
-        .step-indicator {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0;
-            padding: 1.2rem 1.5rem 0.5rem;
-        }
-        .step-dot {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.85rem; font-weight: 600;
-            transition: var(--transition);
-            background: var(--input-bg);
-            border: 2px solid var(--input-border);
-            color: var(--text-color);
-            opacity: 0.5;
-        }
-        .step-dot.active { background: var(--primary-color); border-color: var(--primary-color); color: white; opacity: 1; }
-        .step-dot.done { background: #27ae60; border-color: #27ae60; color: white; opacity: 1; }
-        .step-line { width: 40px; height: 2px; background: var(--input-border); }
-        .step-line.done { background: #27ae60; }
-
-        .checkout-step { display: none; padding: 1rem 1.5rem 1.5rem; }
-        .checkout-step.active { display: block; }
-
-        .step-title { font-size: 1rem; font-weight: 600; margin-bottom: 1.2rem; color: var(--primary-color); }
-
-        /* Wompi payment step */
-        .payment-info-box {
-            background: var(--input-bg);
-            border-radius: 12px;
-            padding: 1.2rem;
-            margin-bottom: 1.2rem;
-            border: 1px solid var(--input-border);
-        }
-        .payment-info-box .total-amount { font-size: 1.5rem; font-weight: 600; color: var(--primary-color); margin-bottom: 0.3rem; }
-        .payment-info-box .order-ref { font-size: 0.8rem; opacity: 0.5; }
-
-        .wompi-widget-container { margin-bottom: 1rem; min-height: 80px; display: flex; align-items: center; justify-content: center; }
-
-        .payment-methods { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-        .pay-method-badge {
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            background: var(--input-bg);
-            border: 1px solid var(--input-border);
-            display: flex; align-items: center; gap: 0.3rem;
-        }
-
-        /* Confirmation step */
-        .success-animation {
-            text-align: center;
-            padding: 2rem 1rem;
-        }
-        .success-circle {
-            width: 80px; height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #27ae60, #2ecc71);
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 1.5rem;
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
-        .success-animation h3 { font-size: 1.4rem; margin-bottom: 0.5rem; }
-        .success-animation p { opacity: 0.7; font-size: 0.95rem; margin-bottom: 0.3rem; }
-        .order-number-badge {
-            display: inline-block;
-            background: var(--primary-color);
-            color: white;
-            padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin: 1rem 0;
-        }
-
-        /* Login prompt */
-        .login-prompt {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            padding: 3rem 2rem;
-            text-align: center;
-        }
-        .login-prompt svg { opacity: 0.3; margin-bottom: 1rem; }
-        .login-prompt h2 { margin-bottom: 0.5rem; }
-        .login-prompt p { opacity: 0.6; margin-bottom: 1.5rem; }
-        .login-prompt .btn-group { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
-    </style>
-</head>
-<body class="cart-page">
-    <header class="navbar">
-        <button id="theme-toggle" class="theme-btn" title="Alternar Modo Oscuro">
-            <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-        </button>
-        <div class="logo-container">
-            <img src="https://cdn.phototourl.com/free/2026-03-25-86eb837e-6f5a-4227-a92e-9e78d32f9aa2.png"
-                alt="Velass&Esencia Logo" class="logo-img">
-        </div>
-        <nav>
-            <a href="index.html">Catálogo</a>
-            <a href="cart.html" class="active" id="nav-cart">
-                🛒 Carrito <span id="nav-cart-count" class="cart-count-badge" style="display:none"></span>
-            </a>
-            <a href="orders.html" id="nav-orders" style="display:none">Mis Pedidos</a>
-            <a href="login.html" id="nav-login">Iniciar Sesión</a>
-            <a href="admin.html" id="nav-admin" style="display:none">Panel Admin</a>
-            <a href="#" id="nav-logout" style="display:none">Cerrar Sesión</a>
-        </nav>
-    </header>
-
-    <main>
-        <!-- Vista para usuarios no logueados -->
-        <div id="guest-view" style="display:none">
-            <div class="login-prompt">
-                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-                <h2>Tu carrito te espera</h2>
-                <p>Inicia sesión para guardar productos en tu carrito y realizar tu pedido.</p>
-                <div class="btn-group">
-                    <a href="login.html" class="btn primary-btn">Iniciar Sesión</a>
-                    <a href="index.html" class="btn secondary-btn">Ver Catálogo</a>
+        container.innerHTML = cart.map(item => `
+            <div class="cart-item" data-id="${item.id}">
+                <div class="cart-item-img" style="background-image:url('${item.img || ''}')"></div>
+                <div class="cart-item-info">
+                    <h4>${item.name}</h4>
+                    <span class="cart-item-price">${formatter.format(item.price)}</span>
                 </div>
+                <div class="cart-item-controls">
+                    <button class="qty-btn" onclick="CartSystem.updateQty(${item.id}, ${item.quantity - 1}); CartSystem.renderCart();">−</button>
+                    <span class="qty-display">${item.quantity}</span>
+                    <button class="qty-btn" onclick="CartSystem.updateQty(${item.id}, ${item.quantity + 1}); CartSystem.renderCart();">+</button>
+                </div>
+                <div class="cart-item-subtotal">${formatter.format(item.price * item.quantity)}</div>
+                <button class="cart-remove-btn" onclick="CartSystem.removeItem(${item.id}); CartSystem.renderCart();" title="Eliminar">×</button>
             </div>
-        </div>
+        `).join('');
 
-        <!-- Vista para usuarios logueados -->
-        <div id="user-cart-view" style="display:none">
-            <div class="cart-header">
-                <h1>Mi Carrito</h1>
-                <span class="cart-badge" id="cart-item-count">0</span>
+        // Actualizar total en resumen
+        const totalEl = document.getElementById('cart-total');
+        if (totalEl) totalEl.textContent = formatter.format(this.getTotal());
+    },
+
+    init() {
+        this.updateCartBadge();
+    }
+};
+
+// =============================================
+// Checkout & Wompi Payment System
+// =============================================
+
+const CheckoutSystem = {
+    currentOrder: null,
+
+    async init() {
+        const form = document.getElementById('checkout-form');
+        if (!form) return;
+
+        // Pre-llenar datos si el usuario los tiene guardados
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (user) {
+            if (user.phone) document.getElementById('checkout-phone').value = user.phone;
+            if (user.address) document.getElementById('checkout-address').value = user.address;
+            if (user.city) document.getElementById('checkout-city').value = user.city;
+            document.getElementById('checkout-name').value = user.name || '';
+            document.getElementById('checkout-email').value = user.email || '';
+        }
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.processOrder();
+        });
+
+        CartSystem.renderCart();
+        this.renderOrderSummary();
+    },
+
+    renderOrderSummary() {
+        const container = document.getElementById('order-summary-items');
+        if (!container) return;
+        const cart = CartSystem.getCart();
+        const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+        container.innerHTML = cart.map(item => `
+            <div class="summary-item">
+                <span>${item.name} × ${item.quantity}</span>
+                <span>${formatter.format(item.price * item.quantity)}</span>
             </div>
+        `).join('');
+        const totalEl = document.getElementById('checkout-total-display');
+        if (totalEl) totalEl.textContent = formatter.format(CartSystem.getTotal());
+    },
 
-            <div class="cart-layout">
-                <!-- Items -->
-                <div class="cart-items-section" id="cart-items-container">
-                    <div class="cart-empty" id="cart-empty-msg" style="display:none">
-                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-                        <h3>Carrito vacío</h3>
-                        <p>Agrega algunas velas para empezar 🕯️</p>
-                        <a href="index.html" class="btn primary-btn">Ver Catálogo</a>
-                    </div>
-                </div>
+    async processOrder() {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (!user) {
+            alert('Debes iniciar sesión para realizar un pedido.');
+            window.location.href = 'login.html';
+            return;
+        }
 
-                <!-- Summary -->
-                <div class="order-summary" id="order-summary">
-                    <h2>Resumen del Pedido</h2>
-                    <div class="summary-row">
-                        <span>Subtotal (<span id="summary-qty">0</span> items)</span>
-                        <span id="summary-subtotal">$0</span>
-                    </div>
-                    <div class="summary-row">
-                        <span>Envío</span>
-                        <span style="color:#27ae60; font-weight:600;">A convenir</span>
-                    </div>
-                    <div class="summary-row total">
-                        <span>Total</span>
-                        <span id="summary-total">$0</span>
-                    </div>
-                    <button class="checkout-btn" id="checkout-btn" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                        Pagar con Wompi
-                    </button>
-                    <div class="wompi-badge">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        Pago 100% seguro vía Wompi
-                    </div>
-                    <div class="payment-methods">
-                        <span class="pay-method-badge">💳 Tarjeta</span>
-                        <span class="pay-method-badge">🏦 PSE</span>
-                        <span class="pay-method-badge">📱 Nequi</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
+        const cart = CartSystem.getCart();
+        if (!cart.length) {
+            alert('Tu carrito está vacío.');
+            return;
+        }
 
-    <!-- ===== CHECKOUT MODAL ===== -->
-    <div class="checkout-modal" id="checkout-modal">
-        <div class="checkout-card">
-            <div class="checkout-card-header">
-                <h3 id="modal-step-title">Datos de Envío</h3>
-                <button class="close-modal-btn" id="close-checkout-modal">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
+        const address = document.getElementById('checkout-address').value;
+        const city = document.getElementById('checkout-city').value;
+        const phone = document.getElementById('checkout-phone').value;
+        const notes = document.getElementById('checkout-notes').value;
+        const email = document.getElementById('checkout-email').value;
+        const name = document.getElementById('checkout-name').value;
 
-            <!-- Step indicators -->
-            <div class="step-indicator">
-                <div class="step-dot active" id="step-dot-1">1</div>
-                <div class="step-line" id="step-line-1"></div>
-                <div class="step-dot" id="step-dot-2">2</div>
-                <div class="step-line" id="step-line-2"></div>
-                <div class="step-dot" id="step-dot-3">✓</div>
-            </div>
+        const total = CartSystem.getTotal();
+        const btnPay = document.getElementById('btn-pay');
+        if (btnPay) { btnPay.disabled = true; btnPay.textContent = 'Procesando...'; }
 
-            <!-- STEP 1: Shipping info -->
-            <div class="checkout-step active" id="step-1">
-                <p class="step-title">📦 ¿Dónde enviamos tu pedido?</p>
-                <div class="form-group">
-                    <label>Dirección completa</label>
-                    <input type="text" id="ship-address" placeholder="Calle 123 # 45-67, Apto 8" required>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Ciudad</label>
-                        <input type="text" id="ship-city" placeholder="Bogotá" required>
+        try {
+            // 1. Crear la orden en el backend
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.id, items: cart, address, city, phone, notes, total })
+            });
+            if (!res.ok) throw new Error('Error creando la orden');
+            const order = await res.json();
+            this.currentOrder = order;
+
+            // Guardar datos de envío para uso futuro
+            if (user.id) {
+                await fetch(`/api/users/${user.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone, address, city })
+                });
+                const updatedUser = { ...user, name, phone, address, city };
+                localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            }
+
+            // 2. Abrir Wompi checkout
+            this.openWompi(order, email, name, phone, total);
+
+        } catch (err) {
+            console.error(err);
+            alert('Error al procesar el pedido. Intenta de nuevo.');
+            if (btnPay) { btnPay.disabled = false; btnPay.textContent = '💳 Pagar con Wompi'; }
+        }
+    },
+
+    openWompi(order, email, name, phone, total) {
+        // ============================================================
+        // CONFIGURACIÓN WOMPI
+        // Reemplaza PUBLIC_KEY con tu llave pública de Wompi
+        // Ambiente sandbox: pub_stagtest_XXXX
+        // Ambiente producción: pub_prod_XXXX
+        // ============================================================
+        const WOMPI_PUBLIC_KEY = 'pub_stagtest_g2ttJpn7BNiqKzPH3hPzoNFdyANrUmFW'; // ← Reemplaza con tu llave
+
+        const checkout = new WidgetCheckout({
+            currency: 'COP',
+            amountInCents: Math.round(total) * 100,
+            reference: order.reference,
+            publicKey: WOMPI_PUBLIC_KEY,
+            customerData: {
+                email: email,
+                fullName: name,
+                phoneNumber: phone,
+                phoneNumberPrefix: '+57'
+            },
+            redirectUrl: `${window.location.origin}/order-confirmation.html?ref=${order.reference}`
+        });
+
+        checkout.open((result) => {
+            const tx = result.transaction;
+            if (tx && tx.status === 'APPROVED') {
+                CartSystem.clearCart();
+                window.location.href = `order-confirmation.html?ref=${order.reference}&status=approved`;
+            } else if (tx && (tx.status === 'DECLINED' || tx.status === 'ERROR')) {
+                alert('El pago no fue aprobado. Puedes intentar de nuevo o contactarnos por WhatsApp.');
+                const btnPay = document.getElementById('btn-pay');
+                if (btnPay) { btnPay.disabled = false; btnPay.textContent = '💳 Pagar con Wompi'; }
+            }
+        });
+    }
+};
+
+// =============================================
+// User Dashboard System (Mi Cuenta)
+// =============================================
+
+const UserDashboard = {
+    async init() {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (!user || user.role === 'admin') return;
+
+        this.renderProfile(user);
+        await this.loadOrders(user.id);
+        await this.loadWishlist(user.id);
+        this.setupProfileForm(user);
+    },
+
+    renderProfile(user) {
+        const nameEl = document.getElementById('dashboard-name');
+        const emailEl = document.getElementById('dashboard-email');
+        const avatarEl = document.getElementById('dashboard-avatar');
+        if (nameEl) nameEl.textContent = user.name;
+        if (emailEl) emailEl.textContent = user.email;
+        if (avatarEl) avatarEl.textContent = user.name.charAt(0).toUpperCase();
+
+        // Llenar formulario de perfil
+        const fields = { 'profile-name': user.name, 'profile-email': user.email, 'profile-phone': user.phone || '', 'profile-address': user.address || '', 'profile-city': user.city || '' };
+        Object.entries(fields).forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        });
+    },
+
+    async loadOrders(userId) {
+        const container = document.getElementById('orders-list');
+        if (!container) return;
+        container.innerHTML = '<div class="loading-spinner">Cargando pedidos...</div>';
+        try {
+            const res = await fetch(`/api/orders/user/${userId}`);
+            const orders = await res.json();
+            const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+            if (!orders.length) {
+                container.innerHTML = `<div class="empty-state"><p>Aún no tienes pedidos. <a href="index.html">¡Compra ahora!</a></p></div>`;
+                return;
+            }
+
+            const statusLabels = { pendiente: '⏳ Pendiente', pagado: '✅ Pagado', en_preparacion: '🕯️ En preparación', enviado: '🚚 Enviado', entregado: '🎉 Entregado', cancelado: '❌ Cancelado' };
+            container.innerHTML = orders.map(order => `
+                <div class="order-card">
+                    <div class="order-header">
+                        <div>
+                            <span class="order-ref">${order.wompi_reference}</span>
+                            <span class="order-date">${new Date(order.created_at).toLocaleDateString('es-CO')}</span>
+                        </div>
+                        <span class="order-status status-${order.status}">${statusLabels[order.status] || order.status}</span>
                     </div>
-                    <div class="form-group">
-                        <label>Teléfono</label>
-                        <input type="tel" id="ship-phone" placeholder="300 123 4567" required>
+                    <div class="order-items-preview">
+                        ${(order.items || []).map(item => `
+                            <div class="order-item-row">
+                                <img src="${item.product_img || ''}" alt="${item.product_name}" onerror="this.style.display='none'">
+                                <span>${item.product_name} × ${item.quantity}</span>
+                                <span>${formatter.format(item.price * item.quantity)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="order-footer">
+                        <strong>Total: ${formatter.format(order.total)}</strong>
+                        ${order.status === 'entregado' ? `<button class="btn secondary-btn sm" onclick="UserDashboard.reorder(${order.id})">Volver a pedir</button>` : ''}
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Notas para el pedido (opcional)</label>
-                    <textarea id="ship-notes" rows="2" placeholder="Ej: Color de cera preferido, dedicatoria..."></textarea>
-                </div>
-                <div style="display:flex; gap:0.8rem; justify-content:flex-end; margin-top:0.5rem;">
-                    <button class="btn text-btn" onclick="document.getElementById('checkout-modal').classList.remove('active')">Cancelar</button>
-                    <button class="btn primary-btn" id="btn-step1-next">Continuar →</button>
-                </div>
-            </div>
+            `).join('');
+        } catch (err) {
+            container.innerHTML = '<p>Error cargando pedidos.</p>';
+        }
+    },
 
-            <!-- STEP 2: Payment -->
-            <div class="checkout-step" id="step-2">
-                <p class="step-title">💳 Realiza tu pago</p>
-                <div class="payment-info-box">
-                    <div class="total-amount" id="payment-total-display">$0</div>
-                    <div class="order-ref">Referencia: <span id="payment-order-ref">—</span></div>
-                </div>
-                <div class="wompi-widget-container" id="wompi-widget-container">
-                    <!-- Wompi widget se monta aquí -->
-                    <div id="wompi-loading" style="text-align:center; opacity:0.5;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4"/></svg>
-                        <p style="font-size:0.85rem; margin-top:0.3rem;">Preparando pago...</p>
+    async loadWishlist(userId) {
+        const container = document.getElementById('wishlist-grid');
+        if (!container) return;
+        try {
+            const res = await fetch(`/api/wishlist/${userId}`);
+            const items = await res.json();
+            const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+            if (!items.length) {
+                container.innerHTML = '<div class="empty-state"><p>Tu lista de deseos está vacía.</p></div>';
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="wishlist-card">
+                    <div class="wishlist-img" style="background-image:url('${item.img}')"></div>
+                    <div class="wishlist-info">
+                        <h4>${item.name}</h4>
+                        <span class="product-price">${formatter.format(item.price)}</span>
+                        ${item.stock > 0 ? `<button class="btn primary-btn sm" onclick="CartSystem.addItem(${JSON.stringify(item).replace(/"/g,'&quot;')})">Añadir al carrito</button>` : '<span class="out-of-stock">Agotado</span>'}
                     </div>
+                    <button class="wishlist-remove" onclick="UserDashboard.removeFromWishlist(${userId}, ${item.product_id})" title="Quitar de favoritos">♡</button>
                 </div>
-                <p style="font-size:0.78rem; opacity:0.5; text-align:center; margin-bottom:1rem;">
-                    🔒 Transacción procesada de forma segura por Wompi (Bancolombia)
-                </p>
-                <div style="display:flex; gap:0.8rem; justify-content:flex-end;">
-                    <button class="btn text-btn" id="btn-step2-back">← Volver</button>
-                </div>
-            </div>
+            `).join('');
+        } catch (err) {
+            container.innerHTML = '<p>Error cargando lista de deseos.</p>';
+        }
+    },
 
-            <!-- STEP 3: Success -->
-            <div class="checkout-step" id="step-3">
-                <div class="success-animation">
-                    <div class="success-circle">
-                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
-                    <h3>¡Pedido recibido!</h3>
-                    <p>Gracias por tu compra. Pronto nos pondremos en contacto.</p>
-                    <div class="order-number-badge" id="success-order-number">Pedido #—</div>
-                    <p style="font-size:0.85rem; opacity:0.6;">Revisa <a href="orders.html" style="color:var(--primary-color)">Mis Pedidos</a> para ver el estado.</p>
-                    <button class="btn primary-btn" style="margin-top:1.5rem; width:100%"
-                        onclick="window.location.href='index.html'">Seguir comprando 🛍️</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    async removeFromWishlist(userId, productId) {
+        await fetch(`/api/wishlist/${userId}/${productId}`, { method: 'DELETE' });
+        this.loadWishlist(userId);
+        // Actualizar ícono en catálogo si está visible
+        const btn = document.querySelector(`[data-wishlist="${productId}"]`);
+        if (btn) btn.classList.remove('active');
+    },
 
-    <style>
-        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-    </style>
-
-    <!-- Wompi SDK -->
-    <script src="https://checkout.wompi.co/widget.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/cart.js"></script>
-</body>
-</html>
+    setupProfileForm(user) {
+        const form = document.getElementById('profile-form');
+        if (!form) return;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('profile-name').value,
+                phone: document.getElementById('profile-phone').value,
+                address: document.getElementById('profile-address').value,
+                city: document.getElementById('profile-city').value
+            };
+            try {
+                const res = await fetch(`/api/users/${user.id}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const updated = await res.json();
+                localStorage.setItem('currentUser', JSON.stringify({ ...user, ...updated }));
+                CartSystem.showToast('✅ Perfil actualizado');
+                this.renderProfile(updated);
+            } catch (err) {
+                alert('Error al guardar el perfil.');
+            }
+        });
+    }
+};

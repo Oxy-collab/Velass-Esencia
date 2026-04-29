@@ -1,213 +1,123 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Velass&Esencia - Catálogo</title>
+    <title>Velass&Esencia - Checkout</title>
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Widget Wompi -->
+    <script src="https://checkout.wompi.co/widget.js" data-render="false"></script>
 </head>
-    <!-- Modal para detalle del producto -->
-<div id="product-detail-modal" class="modal-overlay">
-    <div class="modal-card" id="product-detail-content">
-        <!-- Contenido del producto se inserta por JS -->
-        <button id="close-detail-modal" class="btn text-btn" style="float:right;">Cerrar</button>
-        <div id="product-detail-inner"></div>
-    </div>
-</div>
-<style>
-  /* Estilos para modal detalle (usa variables de tema para respetar modo oscuro) */
-  #product-detail-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.55); z-index: 10000; justify-content: center; align-items: center; }
-  #product-detail-modal.active { display:flex; }
-  #product-detail-content { background: var(--card-bg); color: var(--text-color); padding: 2em; border-radius: 1em; max-width: 90vw; width: 420px; position: relative; box-shadow: var(--shadow); }
-  #product-detail-inner img { max-width: 100%; border-radius: 10px; margin-bottom: 10px; display:block; }
-  /* Aseguramos que los botones del modal respeten variables de color */
-  #product-detail-content .btn { margin-top: 1rem; display: inline-block; }
-  #product-detail-content .btn + .btn { margin-left: 0.5rem; }
-</style>
-
 <body>
     <header class="navbar">
         <button id="theme-toggle" class="theme-btn" title="Alternar Modo Oscuro">
-            <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
         </button>
         <div class="logo-container">
-            <img src="https://cdn.phototourl.com/free/2026-03-25-86eb837e-6f5a-4227-a92e-9e78d32f9aa2.png"
-                alt="Velass&Esencia Logo" class="logo-img">
+            <img src="https://cdn.phototourl.com/free/2026-03-25-86eb837e-6f5a-4227-a92e-9e78d32f9aa2.png" alt="Velass&Esencia Logo" class="logo-img">
         </div>
         <nav>
-            <a href="index.html" class="active">Catálogo</a>
-            <a href="login.html" id="nav-login">Iniciar Sesión</a>
-            <a href="#" id="nav-cart" title="Ver carrito" onclick="CartSystem.openCart(); return false;">Carrito <span id="cart-count" style="background:var(--primary-color); color:white; padding:0.1rem 0.45rem; border-radius:999px; font-size:0.85rem; margin-left:0.4rem;"></span></a>
-            <a href="admin.html" id="nav-admin" style="display: none;">Panel Admin</a>
-            <a href="#" id="nav-logout" style="display: none;">Cerrar Sesión</a>
+            <a href="index.html">Catálogo</a>
+            <a href="cart.html" class="nav-cart-btn">
+                🛍️ Carrito
+                <span class="cart-badge" id="cart-badge" style="display:none;">0</span>
+            </a>
         </nav>
     </header>
 
-    <main>
-        <section class="hero reveal">
-            <h1>Hechas a mano, pensadas para iluminar tus momentos.</h1>
-            <p>A base de cera de soja para alegrar tus momentos y regalar recuerdos.</p>
-        </section>
+    <main class="checkout-page">
+        <div class="checkout-steps">
+            <span class="step done">1. Carrito</span>
+            <span class="step-divider">›</span>
+            <span class="step active">2. Datos de envío</span>
+            <span class="step-divider">›</span>
+            <span class="step">3. Pago</span>
+        </div>
 
-        <section class="catalog reveal" id="catalog-section">
-            <h2>Nuestro Catálogo</h2>
-            <div id="catalog-container">
-                <!-- Products will be dynamically inserted here by category -->
-            </div>
-            <p class="catalog-footer-msg">✨ Todas nuestras velas incluyen empaque listo para regalo. Aroma y color de tu
-                elección.</p>
-        </section>
+        <div class="checkout-layout">
+            <!-- Formulario de envío -->
+            <div class="checkout-form-col">
+                <div class="checkout-card">
+                    <h2>Datos de envío</h2>
+                    <form id="checkout-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="checkout-name">Nombre completo</label>
+                                <input type="text" id="checkout-name" required placeholder="Tu nombre">
+                            </div>
+                            <div class="form-group">
+                                <label for="checkout-email">Correo electrónico</label>
+                                <input type="email" id="checkout-email" required placeholder="tu@email.com">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="checkout-phone">Teléfono / WhatsApp</label>
+                            <input type="tel" id="checkout-phone" required placeholder="3001234567">
+                        </div>
+                        <div class="form-group">
+                            <label for="checkout-address">Dirección de envío</label>
+                            <input type="text" id="checkout-address" required placeholder="Calle, carrera, # casa/apto">
+                        </div>
+                        <div class="form-group">
+                            <label for="checkout-city">Ciudad / Municipio</label>
+                            <input type="text" id="checkout-city" required placeholder="Cúcuta, Bogotá...">
+                        </div>
+                        <div class="form-group">
+                            <label for="checkout-notes">Instrucciones adicionales (opcional)</label>
+                            <textarea id="checkout-notes" rows="3" placeholder="Referencia de la dirección, indicaciones para el mensajero..."></textarea>
+                        </div>
 
+                        <div class="payment-methods-info">
+                            <h4>Métodos de pago disponibles</h4>
+                            <div class="payment-icons">
+                                <span class="payment-badge">💳 Tarjeta</span>
+                                <span class="payment-badge">🏦 PSE</span>
+                                <span class="payment-badge">📱 Nequi</span>
+                                <span class="payment-badge">💚 Daviplata</span>
+                            </div>
+                            <p class="payment-note">Procesado de forma segura por <strong>Wompi</strong> (Bancolombia)</p>
+                        </div>
 
-
-        <section class="custom-candle reveal" id="custom-candle-section">
-            <h2>Crea tu Vela Personalizada</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 2rem;">Elige las características y envíanos tu
-                diseño directamente a nuestro Instagram.</p>
-            <form id="custom-candle-form" class="custom-form">
-                <div class="form-group">
-                    <label for="custom-scent">Olor (Esencia)</label>
-                    <select id="custom-scent" required>
-                        <option value="">Selecciona un aroma...</option>
-                        <option value="Uva">Uva</option>
-                        <option value="Sandia">Sandia pepino</option>
-                        <option value="Jengibre melocoton">Jengibre melocoton</option>
-                        <option value="Durazno">Durazno</option>
-                        <option value="Maracuya">Maracuya</option>
-                        <option value="Cereza">Cereza</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="custom-color">Color Preferido</label>
-                    <select id="custom-color" required>
-                        <option value="">Selecciona un color...</option>
-                        <option value="Amarillo">Amarillo</option>
-                        <option value="Azul">Azul</option>
-                        <option value="Rojo">Rojo</option>
-                        <option value="Naranja">Naranja</option>
-                        <option value="Verde">Verde</option>
-                        <option value="Rosado">Rosado</option>
-                        <option value="Morado">Morado</option>
-                        <option value="Negro">Negro</option>
-                        <option value="Blanco">Blanco</option>
-                        <option value="Marron Claro">Marron Claro</option>
-                        <option value="Marron Oscuro">Marron Oscuro</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="custom-shape">Raza o Figura</label>
-                    <select id="custom-shape" required>
-                        <option value="">Selecciona una figura...</option>
-                        <option value="Cilindro Clásico">Cilindro Clásico</option>
-                        <option value="Cachorro">Cachorro</option>
-                        <option value="Llama">Llama</option>
-                        <option value="Conejo">Conejo</option>
-                        <option value="Perro">Perro</option>
-                        <option value="Gato">Gato</option>
-                        <option value="Buda">Buda</option>
-                        <option value="Flor de Loto">Flor de Loto</option>
-                        <option value="Concha Marina">Concha Marina</option>
-                        <option value="Cubo Burbuja">Cubo Burbuja</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn primary-btn" style="width: 100%;">Pedir Vela Personalizada</button>
-            </form>
-        </section>
-        <section class="our-story reveal" id="our-story-section">
-            <h2>Nuestra Historia</h2>
-            <div class="story-content">
-                <p>Velas&amp;Esencia fue fundada por Stephanie, Elizabeth y Sonia en 2026, naciendo del amor por los
-                    detalles hechos a mano y el deseo de transformar momentos especiales en recuerdos inolvidables.
-                    La marca se dedica a la creación de velas artesanales de alta calidad, elaboradas cuidadosamente
-                    con materiales seguros y seleccionados para brindar bienestar, calidez y armonía en cada espacio.</p>
-            </div>
-        </section>
-
-        <!-- =================== ÚLTIMAS NOVEDADES =================== -->
-        <section class="social-feed reveal" id="social-feed-section">
-            <div class="social-feed-header">
-                <h2>✨ Últimas Novedades</h2>
-                <p>Síguenos y entérate de todo lo nuevo de Velass&amp;Esencia</p>
-            </div>
-            <div class="social-feed-grid">
-                <!-- TikTok Column -->
-                <div class="social-feed-col">
-                    <div class="social-feed-col-header">
-                        <span class="social-badge tiktok">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
-                            TikTok
-                        </span>
-                        <h3>@velass.esencia</h3>
-                    </div>
-                    <div class="social-embed-wrapper" id="tiktok-embed-wrapper">
-                        <!-- TikTok embed inserted by JS -->
-                    </div>
-                    <a href="https://www.tiktok.com/@velass.esencia" target="_blank" rel="noopener noreferrer"
-                        class="social-follow-btn tiktok">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
-                        Seguir en TikTok
-                    </a>
-                </div>
-
-                <!-- Instagram Column -->
-                <div class="social-feed-col">
-                    <div class="social-feed-col-header">
-                        <span class="social-badge instagram">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                            Instagram
-                        </span>
-                        <h3>@velass.esencia</h3>
-                    </div>
-                    <div class="social-embed-wrapper" id="instagram-embed-wrapper">
-                        <!-- Instagram embed inserted by JS -->
-                    </div>
-                    <a href="https://www.instagram.com/velass.esencia/" target="_blank" rel="noopener noreferrer"
-                        class="social-follow-btn instagram">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/></svg>
-                        Seguir en Instagram
-                    </a>
+                        <button type="submit" class="btn primary-btn" id="btn-pay" style="width:100%;font-size:1.1rem;padding:1rem;">
+                            💳 Pagar con Wompi
+                        </button>
+                    </form>
                 </div>
             </div>
-        </section>
+
+            <!-- Resumen del pedido -->
+            <div class="checkout-summary-col">
+                <div class="checkout-card order-summary-card">
+                    <h3>Tu pedido</h3>
+                    <div id="order-summary-items"></div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-row total-row">
+                        <span>Total a pagar</span>
+                        <strong id="checkout-total-display">$0</strong>
+                    </div>
+                    <p class="shipping-note">🚚 El envío se coordina por WhatsApp tras confirmar tu pago.</p>
+                </div>
+            </div>
+        </div>
     </main>
 
-    <!-- WhatsApp Floating Button -->
-    <a href="https://wa.me/573005798487" class="whatsapp-float" target="_blank" title="Contáctanos en WhatsApp">
-        <svg viewBox="0 0 32 32" width="35" height="35" fill="white">
-            <path d="M16 2a13 13 0 0 0-11 20l-2 7 7-2a13 13 0 1 0 6-25zm0 2a11 11 0 1 1-5.6 20.4l-.4-.2-4.1 1.2 1.2-4-.3-.5A11 11 0 0 1 16 4zm5.8 15.3c-.3-.2-1.9-1-2.2-1-.3-.1-.5-.2-.7.2s-.8 1-.1 1.4c.6.4 1.8-1 1.8-1s1.3.8 1.2 1.1z" />
-            <path d="M12.4 9.1c-.2-.5-.5-.5-.8-.5H11c-.3 0-.7.1-1 .5s-1.4 1.4-1.4 3.4 1.4 4 1.6 4.2c.2.3 2.9 4.4 7 6.1 1 .4 1.7.6 2.3.8.9.3 1.8.2 2.5.1.7-.1 2.2-1 2.5-1.9.3-.9.3-1.6.2-1.8-.1-.2-."/>
-        </svg>
-    </a>
-
     <footer class="site-footer">
-        <div class="social-links">
-            <a href="https://www.instagram.com/velass.esencia/" target="_blank" title="Instagram">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                </svg>
-            </a>
-            <a href="https://www.tiktok.com/@velass.esencia" target="_blank" title="TikTok">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
-                </svg>
-            </a>
-        </div>
-        <p>&copy; 2026 Velass&amp;Esencia. Todos los derechos reservados.</p>
+        <p>&copy; 2026 Velass&Esencia. Todos los derechos reservados.</p>
     </footer>
 
-    <!-- Social Media Embed SDKs -->
-    <script async src="https://www.tiktok.com/embed.js"></script>
-    <script async src="//www.instagram.com/embed.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/cart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (!user) { window.location.href = 'login.html'; return; }
+            if (CartSystem.getCart().length === 0) { window.location.href = 'cart.html'; return; }
+            CartSystem.init();
+            await CheckoutSystem.init();
+        });
+    </script>
 </body>
-
 </html>
