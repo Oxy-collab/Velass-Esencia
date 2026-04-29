@@ -1,7 +1,7 @@
 {
   "name": "velass-esencia-backend",
   "version": "1.0.0",
-  "description": "Backend para el proyecto Velass&Esencia con better-sqlite3",
+  "description": "Sistema de inventario y ventas para Velass&Esencia",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -17,7 +17,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
-  },
-  "author": "",
-  "license": "ISC"
+  }
 }
