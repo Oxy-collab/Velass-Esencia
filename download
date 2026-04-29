@@ -1,0 +1,4 @@
+node_modules/
+velassesencia.db
+package-lock.json
+*.log
