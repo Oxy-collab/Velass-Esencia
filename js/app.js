@@ -473,11 +473,24 @@ const SocialFeedSystem = {
         instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/'
     },
 
-    getConfig() {
-        return {
-            tiktok: localStorage.getItem('social_tiktok') || this.DEFAULTS.tiktok,
-            instagram: localStorage.getItem('social_instagram') || this.DEFAULTS.instagram
-        };
+    async getConfig() {
+        let tiktok = this.DEFAULTS.tiktok;
+        let instagram = this.DEFAULTS.instagram;
+        try {
+            const tikRes = await fetch(`${API_BASE}/api/settings/social_tiktok`);
+            if (tikRes.ok) {
+                const data = await tikRes.json();
+                if (data.value) tiktok = data.value;
+            }
+            const igRes = await fetch(`${API_BASE}/api/settings/social_instagram`);
+            if (igRes.ok) {
+                const data = await igRes.json();
+                if (data.value) instagram = data.value;
+            }
+        } catch (e) {
+            console.error('Error cargando settings sociales', e);
+        }
+        return { tiktok, instagram };
     },
 
     extractTikTokId(url) {
@@ -490,10 +503,10 @@ const SocialFeedSystem = {
         return m ? m[2] : null;
     },
 
-    init() {
+    async init() {
         const section = document.getElementById('social-feed-section');
         if (!section) return;
-        const config = this.getConfig();
+        const config = await this.getConfig();
         this.renderTikTok(config.tiktok);
         this.renderInstagram(config.instagram);
     },

@@ -54,31 +54,47 @@ function baseChartOptions(extra = {}) {
 const FinanceSystem = {
     transactions: [],
 
-    init() {
-        this.loadTransactions();
+    async init() {
+        await this.loadTransactions();
         this.renderTransactions();
         this.setupEventListeners();
     },
 
-    loadTransactions() {
-        const stored = localStorage.getItem('transactions');
-        this.transactions = stored ? JSON.parse(stored) : [];
+    async loadTransactions() {
+        try {
+            const res = await fetch(`${API_BASE}/api/transactions`);
+            if (res.ok) {
+                this.transactions = await res.json();
+            } else {
+                this.transactions = [];
+            }
+        } catch (e) {
+            console.error(e);
+            this.transactions = [];
+        }
     },
 
-    saveTransactions() {
-        localStorage.setItem('transactions', JSON.stringify(this.transactions));
+    async addTransaction(type, category, amount, date, description) {
+        try {
+            const res = await fetch(`${API_BASE}/api/transactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, category, amount: parseFloat(amount), date, description })
+            });
+            if (res.ok) {
+                const newT = await res.json();
+                this.transactions.unshift(newT);
+            }
+        } catch (e) { console.error(e); }
     },
 
-    addTransaction(type, category, amount, date, description) {
-        const t = { id: Date.now(), type, category, amount: parseFloat(amount), date, description, created_at: new Date().toISOString() };
-        this.transactions.unshift(t);
-        this.saveTransactions();
-        return t;
-    },
-
-    deleteTransaction(id) {
-        this.transactions = this.transactions.filter(t => t.id !== id);
-        this.saveTransactions();
+    async deleteTransaction(id) {
+        try {
+            const res = await fetch(`${API_BASE}/api/transactions/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                this.transactions = this.transactions.filter(t => t.id !== id);
+            }
+        } catch (e) { console.error(e); }
     },
 
     getByMonth(month) { return this.transactions.filter(t => t.date.startsWith(month)); },
@@ -86,26 +102,26 @@ const FinanceSystem = {
     getTotalIncome(month = null) {
         let f = this.transactions.filter(t => t.type === 'ingreso');
         if (month) f = f.filter(t => t.date.startsWith(month));
-        return f.reduce((s, t) => s + t.amount, 0);
+        return f.reduce((s, t) => s + parseFloat(t.amount), 0);
     },
 
     getTotalExpense(month = null) {
         let f = this.transactions.filter(t => t.type === 'egreso');
         if (month) f = f.filter(t => t.date.startsWith(month));
-        return f.reduce((s, t) => s + t.amount, 0);
+        return f.reduce((s, t) => s + parseFloat(t.amount), 0);
     },
 
     setupEventListeners() {
         const form = document.getElementById('transaction-form');
         if (!form) return;
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const type = document.getElementById('trans-type').value;
             const category = document.getElementById('trans-category').value;
             const amount = document.getElementById('trans-amount').value;
             const date = document.getElementById('trans-date').value;
             const description = document.getElementById('trans-description').value;
-            this.addTransaction(type, category, amount, date, description);
+            await this.addTransaction(type, category, amount, date, description);
             form.reset();
             document.getElementById('trans-date').valueAsDate = new Date();
             this.renderTransactions();
@@ -132,8 +148,8 @@ const FinanceSystem = {
                     </div>
                 </div>
                 <div class="trans-right">
-                    <div class="trans-amount ${t.type}">${t.type === 'ingreso' ? '+' : '-'}$${t.amount.toLocaleString('es-CO')}</div>
-                    <button class="btn-delete-trans" title="Eliminar" onclick="FinanceSystem.deleteTransaction(${t.id});FinanceSystem.renderTransactions();FinanceUI.updateDashboard();">🗑️</button>
+                    <div class="trans-amount ${t.type}">${t.type === 'ingreso' ? '+' : '-'}$${parseFloat(t.amount).toLocaleString('es-CO')}</div>
+                    <button class="btn-delete-trans" title="Eliminar" onclick="FinanceSystem.deleteTransaction(${t.id}).then(() => { FinanceSystem.renderTransactions(); FinanceUI.updateDashboard(); })">🗑️</button>
                 </div>
             </div>
         `).join('');
@@ -427,19 +443,36 @@ const SocialMediaAdmin = {
         instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/'
     },
 
-    load() {
-        return {
-            tiktok: localStorage.getItem('social_tiktok') || this.DEFAULTS.tiktok,
-            instagram: localStorage.getItem('social_instagram') || this.DEFAULTS.instagram
-        };
+    async load() {
+        let tiktok = this.DEFAULTS.tiktok;
+        let instagram = this.DEFAULTS.instagram;
+        try {
+            const tikRes = await fetch(`${API_BASE}/api/settings/social_tiktok`);
+            if (tikRes.ok) {
+                const data = await tikRes.json();
+                if (data.value) tiktok = data.value;
+            }
+            const igRes = await fetch(`${API_BASE}/api/settings/social_instagram`);
+            if (igRes.ok) {
+                const data = await igRes.json();
+                if (data.value) instagram = data.value;
+            }
+        } catch (e) {}
+        return { tiktok, instagram };
     },
 
-    save(platform, url) {
-        localStorage.setItem(`social_${platform}`, url);
+    async save(platform, url) {
+        try {
+            await fetch(`${API_BASE}/api/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: `social_${platform}`, value: url })
+            });
+        } catch (e) {}
     },
 
-    init() {
-        const config = this.load();
+    async init() {
+        const config = await this.load();
         const tikInput = document.getElementById('tiktok-url');
         const igInput = document.getElementById('instagram-url');
         if (tikInput) tikInput.value = config.tiktok;
@@ -449,19 +482,19 @@ const SocialMediaAdmin = {
         const btnInstagram = document.getElementById('btn-save-instagram');
 
         if (btnTiktok) {
-            btnTiktok.addEventListener('click', () => {
+            btnTiktok.addEventListener('click', async () => {
                 const url = tikInput.value.trim();
                 if (!url.includes('tiktok.com')) { Toast.show('Ingresa una URL válida de TikTok', 'error'); return; }
-                this.save('tiktok', url);
+                await this.save('tiktok', url);
                 Toast.show('URL de TikTok guardada. Se verá en el catálogo.', 'success');
                 this.renderPreview('tiktok', url);
             });
         }
         if (btnInstagram) {
-            btnInstagram.addEventListener('click', () => {
+            btnInstagram.addEventListener('click', async () => {
                 const url = igInput.value.trim();
                 if (!url.includes('instagram.com')) { Toast.show('Ingresa una URL válida de Instagram', 'error'); return; }
-                this.save('instagram', url);
+                await this.save('instagram', url);
                 Toast.show('URL de Instagram guardada. Se verá en el catálogo.', 'success');
                 this.renderPreview('instagram', url);
             });
@@ -681,11 +714,11 @@ const AdminPageInit = {
 
         TabSystem.init();
         InventorySubTabs.init();
-        FinanceSystem.init();
+        await FinanceSystem.init();
         FinanceUI.updateDashboard();
         AdminInventorySystem.init();
         RawMaterialsSystem.setupModal();
-        SocialMediaAdmin.init();
+        await SocialMediaAdmin.init();
 
         const dateInput = document.getElementById('trans-date');
         if (dateInput) dateInput.valueAsDate = new Date();

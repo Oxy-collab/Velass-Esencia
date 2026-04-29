@@ -39,6 +39,10 @@ db.serialize(() => {
         description TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+    db.run(`CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )`);
     
     // Seed admin si no hay usuarios
     db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
@@ -240,6 +244,22 @@ app.get('/api/users/count', (req, res) => {
     db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ count: row.count });
+    });
+});
+
+// --- API: SETTINGS ---
+app.get('/api/settings/:key', (req, res) => {
+    getOne('SELECT value FROM settings WHERE key=?', [req.params.key], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ value: row ? row.value : null });
+    });
+});
+
+app.post('/api/settings', (req, res) => {
+    const { key, value } = req.body;
+    db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [key, value], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
     });
 });
 
