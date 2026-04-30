@@ -96,7 +96,7 @@ const CatalogSystem = {
         }, {});
 
         // Maintain category order (use canonical name)
-        const categoryOrder = ['Línea Bloom', 'Mini Scents', 'Terrario', 'Linea Pet soul'];
+        const categoryOrder = ['Día de la madre', 'Línea Bloom', 'Mini Scents', 'Terrario', 'Linea Pet soul'];
         const sortedCategories = Object.keys(grouped).sort((a, b) => {
             const ia = categoryOrder.indexOf(a);
             const ib = categoryOrder.indexOf(b);
@@ -111,7 +111,21 @@ const CatalogSystem = {
             const title = document.createElement('h3');
             title.className = 'category-title';
             title.textContent = category;
-            section.appendChild(title);
+            
+            if (category === 'Día de la madre') {
+                title.style.color = '#e91e63';
+                title.innerHTML += ' 🌸';
+                const subtitle = document.createElement('p');
+                subtitle.style.textAlign = 'center';
+                subtitle.style.color = '#e91e63';
+                subtitle.style.marginBottom = '2rem';
+                subtitle.style.fontSize = '1.1rem';
+                subtitle.innerHTML = '<em>Celebra a la mujer más importante con un detalle que ilumina el alma. ¡Sorpréndela con un regalo único y especial diseñado solo para ella! ❤️</em>';
+                section.appendChild(title);
+                section.appendChild(subtitle);
+            } else {
+                section.appendChild(title);
+            }
 
             const grid = document.createElement('div');
             grid.className = 'product-grid';
@@ -120,14 +134,24 @@ const CatalogSystem = {
                 const card = document.createElement('div');
                 card.className = 'product-card';
                 const imgUrl = p.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente';
+                
+                let originalPrice = p.price;
+                let displayPrice = formatter.format(p.price);
+                let discountBadge = '';
+                
+                if (category === 'Día de la madre') {
+                    const discountedPrice = originalPrice * 0.9; // 10% discount
+                    displayPrice = `<span style="text-decoration:line-through;color:#999;font-size:0.85em;margin-right:5px;">${formatter.format(originalPrice)}</span> <span style="color:#e91e63;font-weight:bold;">${formatter.format(discountedPrice)}</span>`;
+                    discountBadge = `<div style="position:absolute;top:10px;right:10px;background:#e91e63;color:white;padding:5px 10px;border-radius:12px;font-size:0.8em;font-weight:bold;z-index:1;box-shadow: 0 2px 5px rgba(0,0,0,0.2);">-10% OFF</div>`;
+                }
 
                 card.innerHTML = `
-            <div class="product-img" style="background-image: url('${imgUrl}')"></div>
+            <div class="product-img" style="background-image: url('${imgUrl}'); position:relative;">${discountBadge}</div>
             <div class="product-info">
             <h3 class="product-title">${p.name}</h3>
             <p class="product-desc">${p.description}</p>
             <div class="product-footer">
-            <span class="product-price">${formatter.format(p.price)}</span>
+            <span class="product-price">${displayPrice}</span>
             </div>
             </div>
             `;
@@ -577,12 +601,21 @@ function openProductDetail(product) {
     const modal = document.getElementById('product-detail-modal');
     const content = document.getElementById('product-detail-inner');
     if (!modal || !content) return;
+    
+    let originalPrice = product.price;
+    let displayPrice = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(product.price);
+    
+    if (product.category === 'Día de la madre') {
+        const discountedPrice = originalPrice * 0.9; // 10% off
+        displayPrice = `<span style="text-decoration:line-through;color:#999;font-size:0.85em;margin-right:5px;">${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(originalPrice)}</span> <span style="color:#e91e63;font-weight:bold;">${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(discountedPrice)}</span> <span style="color:#e91e63;font-size:0.85em;font-weight:bold;margin-left:5px;">(-10% OFF)</span>`;
+    }
+
     content.innerHTML = `
         <img src="${product.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente'}" alt="${product.name}">
         <h2 style="margin-top:0">${product.name}</h2>
         <p><strong>Categoría:</strong> ${product.category}</p>
         <p><strong>Descripción:</strong> ${product.description}</p>
-        <p><strong>Precio:</strong> ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(product.price)}</p>
+        <p><strong>Precio:</strong> ${displayPrice}</p>
         <button class="btn primary-btn" onclick="CatalogSystem.buyProduct('${product.name.replace(/'/g,'\\\\\'')}')">Pedir por WhatsApp/IG</button>
     `;
     modal.classList.add('active');
