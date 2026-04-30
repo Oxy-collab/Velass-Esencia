@@ -515,7 +515,7 @@ const SocialFeedSystem = {
         const wrapper = document.getElementById('tiktok-embed-wrapper');
         if (!wrapper) return;
         const videoId = this.extractTikTokId(url);
-        if (!videoId) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Video no disponible</p>'; return; }
+        if (!videoId) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Video no disponible (Asegúrate de copiar el enlace largo que contiene "/video/...")</p>'; return; }
         wrapper.innerHTML = `
             <blockquote class="tiktok-embed"
                 cite="${url}"
@@ -525,7 +525,15 @@ const SocialFeedSystem = {
                     <a target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/@velass.esencia">@velass.esencia</a>
                 </section>
             </blockquote>`;
-        if (window.tiktok && window.tiktok.reload) window.tiktok.reload();
+            
+        // Reload TikTok script to process the newly injected blockquote
+        const oldScript = document.getElementById('tiktok-embed-script');
+        if (oldScript) oldScript.remove();
+        const script = document.createElement('script');
+        script.id = 'tiktok-embed-script';
+        script.src = 'https://www.tiktok.com/embed.js';
+        script.async = true;
+        document.body.appendChild(script);
     },
 
     renderInstagram(url) {
