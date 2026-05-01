@@ -815,6 +815,58 @@ main {
     margin-top: 2rem;
 }
 
+/* Product Detail Modal */
+#product-detail-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(8px);
+}
+
+#product-detail-modal.active {
+    display: flex;
+}
+
+#product-detail-content {
+    background: var(--card-bg);
+    color: var(--text-color);
+    padding: 2.5rem;
+    border-radius: var(--border-radius);
+    max-width: 90vw;
+    width: 500px;
+    position: relative;
+    box-shadow: var(--shadow);
+    animation: scaleIn 0.3s ease-out;
+}
+
+#product-detail-inner img {
+    max-width: 100%;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+#product-detail-inner h2 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+#product-detail-inner p {
+    margin-bottom: 0.8rem;
+    line-height: 1.6;
+}
+
+#product-detail-inner strong {
+    color: var(--primary-color);
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {

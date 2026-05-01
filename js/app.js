@@ -612,7 +612,7 @@ function openProductDetail(product) {
 
     content.innerHTML = `
         <img src="${product.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente'}" alt="${product.name}">
-        <h2 style="margin-top:0">${product.name}</h2>
+        <h2>${product.name}</h2>
         <p><strong>Categoría:</strong> ${product.category}</p>
         <p><strong>Descripción:</strong> ${product.description}</p>
         <p><strong>Precio:</strong> ${displayPrice}</p>
