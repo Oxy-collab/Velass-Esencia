@@ -344,8 +344,11 @@ const AdminInventorySystem = {
 
     async updateStats() {
         const products = await AppSystem.getProducts();
-        const el = document.getElementById('inventory-count');
-        if (el) el.textContent = products.reduce((s, p) => s + (p.stock || 0), 0);
+        const usersData = await AppSystem.getUsersCount();
+        const invEl = document.getElementById('inventory-count');
+        const userEl = document.getElementById('users-count');
+        if (invEl) invEl.textContent = products.length;
+        if (userEl) userEl.textContent = usersData.count;
     },
 
     async renderInventory() {

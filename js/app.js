@@ -275,152 +275,11 @@ const AuthSystem = {
     }
 };
 
-// Admin System
+// Admin System - Utility and Placeholder for admin.js
 const AdminSystem = {
-    async init() {
-        if (document.querySelector('.admin-page')) {
-            await this.updateStats();
-            await this.renderInventory();
-            this.setupModal();
-        }
-    },
-
     isAdmin() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
         return currentUser && currentUser.role === 'admin';
-    },
-
-    async updateStats() {
-        const products = await AppSystem.getProducts();
-        const usersData = await AppSystem.getUsersCount();
-        const inventoryCount = document.getElementById('inventory-count');
-        const usersCount = document.getElementById('users-count');
-        if (inventoryCount) inventoryCount.textContent = products.length;
-        if (usersCount) usersCount.textContent = usersData.count;
-    },
-
-    async renderInventory() {
-        const tbody = document.getElementById('inventory-list');
-        if (!tbody) return;
-        const products = await AppSystem.getProducts();
-        tbody.innerHTML = '';
-        const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-
-        products.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>#${p.id}</td>
-                <td>${p.name}</td>
-                <td>${formatter.format(p.price)}</td>
-                <td>${p.stock}</td>
-                <td>
-                    <button class="action-btn edit-btn" onclick="AdminSystem.editProduct(${p.id})">Editar</button>
-                    <button class="action-btn del-btn" onclick="AdminSystem.deleteProduct(${p.id})">Eliminar</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        await this.updateStats();
-    },
-
-    setupModal() {
-        const modal = document.getElementById('product-modal');
-        const btnAdd = document.getElementById('btn-add-product');
-        const btnCancel = document.getElementById('btn-cancel-modal');
-        const form = document.getElementById('product-form');
-
-        if (!btnAdd || !btnCancel || !form) return;
-
-        btnAdd.addEventListener('click', () => {
-            form.reset();
-            document.getElementById('prod-id').value = '';
-            document.getElementById('modal-title').textContent = 'Añadir Producto';
-            modal.classList.add('active');
-        });
-
-        btnCancel.addEventListener('click', () => {
-            modal.classList.remove('active');
-        });
-
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveProduct();
-        });
-    },
-
-    async saveProduct() {
-        const idInput = document.getElementById('prod-id').value;
-        const name = document.getElementById('prod-name').value;
-        let category = document.getElementById('prod-category').value;
-        const description = document.getElementById('prod-desc').value;
-        const price = parseFloat(document.getElementById('prod-price').value);
-        const stock = parseInt(document.getElementById('prod-stock').value);
-        const img = document.getElementById('prod-img').value || '';
-
-        // Normalize category before sending
-        category = normalizeCategory(category);
-
-        const body = { name, category, description, price, stock, img };
-
-        try {
-            let res;
-            if (idInput) {
-                res = await fetch(`${API_BASE}/api/products/${idInput}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-            } else {
-                res = await fetch(`${API_BASE}/api/products`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-            }
-
-            if (res.ok) {
-                document.getElementById('product-modal').classList.remove('active');
-                await this.renderInventory();
-            } else {
-                const data = await res.json();
-                alert(data.error || 'Error al guardar producto');
-            }
-        } catch (err) {
-            alert('Error de conexión con el servidor');
-        }
-    },
-
-    async editProduct(id) {
-        const products = await AppSystem.getProducts();
-        const product = products.find(p => p.id === id);
-        if (product) {
-            document.getElementById('prod-id').value = product.id;
-            document.getElementById('prod-name').value = product.name;
-            if (document.getElementById('prod-category')) {
-                document.getElementById('prod-category').value = product.category ? normalizeCategory(product.category) : 'Línea Bloom';
-            }
-            document.getElementById('prod-desc').value = product.description;
-            document.getElementById('prod-price').value = product.price;
-            document.getElementById('prod-stock').value = product.stock;
-            document.getElementById('prod-img').value = product.img;
-
-            document.getElementById('modal-title').textContent = 'Editar Producto';
-            document.getElementById('product-modal').classList.add('active');
-        }
-    },
-
-    async deleteProduct(id) {
-        if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
-            try {
-                const res = await fetch(`${API_BASE}/api/products/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    await this.renderInventory();
-                }
-            } catch (err) {
-                alert('Error de conexión con el servidor');
-            }
-        }
     }
 };
 
@@ -583,7 +442,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await CatalogSystem.init();
     CustomCandleSystem.init();
     AuthSystem.init();
-    await AdminSystem.init();
     AnimationSystem.init();
     SocialFeedSystem.init();
 
