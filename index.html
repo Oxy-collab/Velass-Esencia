@@ -44,6 +44,75 @@
             <p>A base de cera de soja para alegrar tus momentos y regalar recuerdos.</p>
         </section>
 
+        <!-- =================== TEST VELA IDEAL =================== -->
+        <section class="candle-test-section reveal" id="candle-test">
+            <div class="test-container glass">
+                <div class="test-header">
+                    <h2>Descubre tu Vela Ideal ✨</h2>
+                    <p>Responde 4 preguntas rápidas y encontraremos la esencia que vibra contigo.</p>
+                </div>
+
+                <div id="test-content">
+                    <div class="test-step active" data-step="1">
+                        <h3>1. ¿Cuál es tu ambiente ideal para relajarte?</h3>
+                        <div class="options-grid">
+                            <button class="option-btn" data-value="relax">🌿 Bosque profundo</button>
+                            <button class="option-btn" data-value="energy">☀️ Playa soleada</button>
+                            <button class="option-btn" data-value="romance">🕯️ Cena elegante</button>
+                            <button class="option-btn" data-value="focus">📖 Biblioteca tranquila</button>
+                        </div>
+                    </div>
+
+                    <div class="test-step" data-step="2">
+                        <h3>2. ¿Qué aroma te hace cerrar los ojos?</h3>
+                        <div class="options-grid">
+                            <button class="option-btn" data-value="relax">Lavanda y Manzanilla</button>
+                            <button class="option-btn" data-value="energy">Cítricos y Menta</button>
+                            <button class="option-btn" data-value="romance">Vainilla y Rosas</button>
+                            <button class="option-btn" data-value="focus">Café y Sándalo</button>
+                        </div>
+                    </div>
+
+                    <div class="test-step" data-step="3">
+                        <h3>3. ¿Cómo definirías tu estilo?</h3>
+                        <div class="options-grid">
+                            <button class="option-btn" data-value="relax">Minimalista y natural</button>
+                            <button class="option-btn" data-value="energy">Vibrante y alegre</button>
+                            <button class="option-btn" data-value="romance">Clásico y sofisticado</button>
+                            <button class="option-btn" data-value="focus">Moderno e intelectual</button>
+                        </div>
+                    </div>
+
+                    <div class="test-step" data-step="4">
+                        <h3>4. ¿Qué buscas al encender una vela?</h3>
+                        <div class="options-grid">
+                            <button class="option-btn" data-value="relax">Paz tras un largo día</button>
+                            <button class="option-btn" data-value="energy">Motivación para empezar</button>
+                            <button class="option-btn" data-value="romance">Crear un momento mágico</button>
+                            <button class="option-btn" data-value="focus">Concentración máxima</button>
+                        </div>
+                    </div>
+
+                    <div class="test-result" id="test-result" style="display: none;">
+                        <div class="result-card">
+                            <div class="result-img" id="result-img"></div>
+                            <div class="result-info">
+                                <h3 id="result-title">Tu Vela Ideal es...</h3>
+                                <p id="result-desc"></p>
+                                <button class="btn primary-btn" id="restart-test">Repetir Test</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="catalog reveal" id="catalog-section">
             <h2>Nuestro Catálogo</h2>
             <div id="catalog-container">

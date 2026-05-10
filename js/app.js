@@ -200,6 +200,106 @@ const CustomCandleSystem = {
     }
 };
 
+// Candle Test System
+const CandleTestSystem = {
+    currentStep: 1,
+    answers: [],
+    results: {
+        relax: {
+            title: "Línea Bloom - Lavanda & Calma",
+            desc: "Eres una persona que busca la paz interior. Tu vela ideal es de la Línea Bloom con esencia de Lavanda. Perfecta para desconectar tras un largo día y sumergirte en un estado de serenidad total.",
+            img: "https://images.unsplash.com/photo-1602874801007-bd458bb1b8b6?auto=format&fit=crop&q=80&w=400"
+        },
+        energy: {
+            title: "Mini Scents - Cítricos Vibrantes",
+            desc: "¡Tu energía es contagiosa! Necesitas aromas que te den ese impulso extra. Tu vela ideal es de nuestra colección Mini Scents con notas de Limón y Menta, ideal para mañanas productivas.",
+            img: "https://images.unsplash.com/photo-1596435707124-33109de82490?auto=format&fit=crop&q=80&w=400"
+        },
+        romance: {
+            title: "Edición Especial - Vainilla Francesa",
+            desc: "Amas los detalles clásicos y los ambientes acogedores. Tu vela ideal es nuestra edición de Vainilla y Rosas. Crea una atmósfera sofisticada y romántica en cualquier rincón de tu hogar.",
+            img: "https://images.unsplash.com/photo-1534629902730-df1195143821?auto=format&fit=crop&q=80&w=400"
+        },
+        focus: {
+            title: "Línea Terrario - Sándalo & Bosque",
+            desc: "La concentración es tu superpoder. Tu vela ideal es de la Línea Terrario con aroma a Sándalo. Te ayudará a mantener el enfoque mientras trabajas o lees tu libro favorito.",
+            img: "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&q=80&w=400"
+        }
+    },
+
+    init() {
+        const testSection = document.getElementById('candle-test');
+        if (!testSection) return;
+
+        const options = document.querySelectorAll('.option-btn');
+        options.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.handleAnswer(btn.dataset.value);
+            });
+        });
+
+        const restartBtn = document.getElementById('restart-test');
+        if (restartBtn) {
+            restartBtn.addEventListener('click', () => this.restart());
+        }
+    },
+
+    handleAnswer(value) {
+        this.answers.push(value);
+        if (this.currentStep < 4) {
+            this.goToStep(this.currentStep + 1);
+        } else {
+            this.showResult();
+        }
+    },
+
+    goToStep(step) {
+        const currentEl = document.querySelector(`.test-step[data-step="${this.currentStep}"]`);
+        const nextEl = document.querySelector(`.test-step[data-step="${step}"]`);
+        
+        if (currentEl) currentEl.classList.remove('active');
+        if (nextEl) nextEl.classList.add('active');
+        
+        this.currentStep = step;
+        this.updateProgress();
+    },
+
+    updateProgress() {
+        const fill = document.getElementById('progress-fill');
+        if (fill) {
+            const percentage = (this.currentStep / 4) * 100;
+            fill.style.width = `${percentage}%`;
+        }
+    },
+
+    showResult() {
+        const counts = this.answers.reduce((acc, val) => {
+            acc[val] = (acc[val] || 0) + 1;
+            return acc;
+        }, {});
+        
+        const resultKey = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+        const result = this.results[resultKey];
+
+        document.querySelector(`.test-step[data-step="${this.currentStep}"]`).classList.remove('active');
+        const resultEl = document.getElementById('test-result');
+        resultEl.style.display = 'block';
+
+        document.getElementById('result-title').textContent = result.title;
+        document.getElementById('result-desc').textContent = result.desc;
+        document.getElementById('result-img').style.backgroundImage = `url('${result.img}')`;
+        
+        this.updateProgress();
+    },
+
+    restart() {
+        this.currentStep = 1;
+        this.answers = [];
+        document.getElementById('test-result').style.display = 'none';
+        this.goToStep(1);
+    }
+};
+
 // Authentication System
 const AuthSystem = {
     init() {
@@ -441,6 +541,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await AppSystem.init();
     await CatalogSystem.init();
     CustomCandleSystem.init();
+    CandleTestSystem.init();
     AuthSystem.init();
     AnimationSystem.init();
     SocialFeedSystem.init();

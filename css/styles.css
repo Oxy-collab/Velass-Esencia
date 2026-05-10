@@ -260,6 +260,207 @@ main {
     margin: 0 auto;
 }
 
+/* Candle Test Section */
+.candle-test-section {
+    padding: 4rem 2rem;
+    margin-bottom: 4rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.candle-test-section::before {
+    content: '';
+    position: absolute;
+    top: -10%;
+    right: -5%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, var(--secondary-color) 0%, transparent 70%);
+    opacity: 0.3;
+    z-index: -1;
+    filter: blur(50px);
+}
+
+.candle-test-section::after {
+    content: '';
+    position: absolute;
+    bottom: -10%;
+    left: -5%;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, var(--primary-color) 0%, transparent 70%);
+    opacity: 0.2;
+    z-index: -1;
+    filter: blur(50px);
+}
+
+.test-container.glass {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 30px;
+    padding: 3rem;
+    max-width: 800px;
+    margin: 0 auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+[data-theme="dark"] .test-container.glass {
+    background: rgba(30, 20, 40, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.test-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.test-header h2 {
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(90deg, var(--primary-color), #fca3b7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.test-step {
+    display: none;
+    animation: fadeInSlide 0.5s ease-out;
+}
+
+.test-step.active {
+    display: block;
+}
+
+.test-step h3 {
+    font-size: 1.4rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    color: var(--text-color);
+}
+
+.options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.option-btn {
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.5);
+    border: 2px solid transparent;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+[data-theme="dark"] .option-btn {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.option-btn:hover {
+    background: white;
+    transform: translateY(-5px);
+    border-color: var(--primary-color);
+    box-shadow: 0 10px 20px rgba(142, 68, 173, 0.1);
+}
+
+[data-theme="dark"] .option-btn:hover {
+    background: rgba(142, 68, 173, 0.2);
+}
+
+.test-progress {
+    margin-top: 3rem;
+}
+
+.progress-bar {
+    height: 8px;
+    background: rgba(142, 68, 173, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), #fca3b7);
+    width: 0%;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Result Card */
+.test-result {
+    animation: scaleIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.result-card {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 2rem;
+    align-items: center;
+}
+
+@media (max-width: 600px) {
+    .result-card {
+        grid-template-columns: 1fr;
+    }
+}
+
+.result-img {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 20px;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.result-info h3 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+.result-info p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+    color: var(--text-color);
+    opacity: 0.9;
+}
+
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 /* Product Grid */
 .product-grid {
     display: grid;
