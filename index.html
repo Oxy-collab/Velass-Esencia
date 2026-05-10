@@ -20,23 +20,43 @@
 
 <body>
     <header class="navbar">
-        <button id="theme-toggle" class="theme-btn" title="Alternar Modo Oscuro">
-            <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-        </button>
+        <div class="nav-left">
+            <button id="hamburger-btn" class="hamburger-btn" title="Menú">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <button id="theme-toggle" class="theme-btn" title="Alternar Modo Oscuro">
+                <svg id="moon-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+        </div>
         <div class="logo-container">
             <img src="https://cdn.phototourl.com/free/2026-03-25-86eb837e-6f5a-4227-a92e-9e78d32f9aa2.png"
                 alt="Velass&Esencia Logo" class="logo-img">
         </div>
-        <nav>
-            <a href="index.html" class="active">Catálogo</a>
-            <a href="login.html" id="nav-login">Iniciar Sesión</a>
-            <a href="admin.html" id="nav-admin" style="display: none;">Panel Admin</a>
-            <a href="#" id="nav-logout" style="display: none;">Cerrar Sesión</a>
-        </nav>
+        <div class="nav-right"></div>
     </header>
+
+    <!-- Sidebar Menu -->
+    <div id="sidebar-menu" class="sidebar">
+        <button id="close-sidebar" class="close-sidebar-btn" title="Cerrar menú">&times;</button>
+        <div class="sidebar-content">
+            <div class="sidebar-logo">
+                <img src="https://cdn.phototourl.com/free/2026-03-25-86eb837e-6f5a-4227-a92e-9e78d32f9aa2.png" alt="Logo">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="active">✨ Catálogo</a>
+                <a href="#candle-test" id="menu-test">🕯️ Descubre tu Vela</a>
+                <a href="login.html" id="nav-login">👤 Iniciar Sesión</a>
+                <a href="admin.html" id="nav-admin" style="display: none;">⚙️ Panel Admin</a>
+                <a href="#" id="nav-logout" style="display: none;">🚪 Cerrar Sesión</a>
+            </nav>
+        </div>
+    </div>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <main>
         <section class="hero reveal">

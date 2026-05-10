@@ -53,10 +53,14 @@ const AppSystem = {
 
         if (currentUser) {
             if (navLogin) navLogin.style.display = 'none';
-            if (navLogout) navLogout.style.display = 'inline';
+            if (navLogout) navLogout.style.display = 'flex';
             if (currentUser.role === 'admin' && navAdmin) {
-                navAdmin.style.display = 'inline';
+                navAdmin.style.display = 'flex';
             }
+        } else {
+            if (navLogin) navLogin.style.display = 'flex';
+            if (navLogout) navLogout.style.display = 'none';
+            if (navAdmin) navAdmin.style.display = 'none';
         }
     },
 
@@ -85,6 +89,10 @@ const CatalogSystem = {
         if (!container) return;
 
         const products = await AppSystem.getProducts();
+        if (!Array.isArray(products) || products.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding: 2rem; color: #999;">No hay productos disponibles en este momento. ✨</p>';
+            return;
+        }
         container.innerHTML = '';
         const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
@@ -449,6 +457,35 @@ const ThemeSystem = {
     }
 };
 
+// Sidebar System
+const SidebarSystem = {
+    init() {
+        const hamburger = document.getElementById('hamburger-btn');
+        const sidebar = document.getElementById('sidebar-menu');
+        const overlay = document.getElementById('sidebar-overlay');
+        const closeBtn = document.getElementById('close-sidebar');
+        const links = document.querySelectorAll('.sidebar-nav a');
+
+        if (!hamburger || !sidebar || !overlay) return;
+
+        const toggleMenu = () => {
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+            document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+        };
+
+        hamburger.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+        if (closeBtn) closeBtn.addEventListener('click', toggleMenu);
+
+        links.forEach(link => {
+            link.addEventListener('click', () => {
+                if (sidebar.classList.contains('open')) toggleMenu();
+            });
+        });
+    }
+};
+
 // =================== SOCIAL FEED SYSTEM ===================
 const SocialFeedSystem = {
     DEFAULTS: {
@@ -538,6 +575,7 @@ const SocialFeedSystem = {
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
     ThemeSystem.init();
+    SidebarSystem.init();
     await AppSystem.init();
     await CatalogSystem.init();
     CustomCandleSystem.init();
