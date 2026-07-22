@@ -2097,3 +2097,130 @@ main {
 * {
     transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
+/* ==========================================================
+   LIQUID GLASS - Fondo con ondas y efecto vidrio líquido
+   ========================================================== */
+
+/* ---- Fondo animado (ondas líquidas) ---- */
+body {
+    background: linear-gradient(135deg, #1a0b2e 0%, #2d1b4e 40%, #1a0b2e 80%);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(142, 68, 173, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(252, 163, 183, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(210, 180, 222, 0.08) 0%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+    animation: liquidFlow 12s ease-in-out infinite alternate;
+}
+
+@keyframes liquidFlow {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(2%, 1%) scale(1.05); }
+    100% { transform: translate(-1%, 2%) scale(0.95); }
+}
+
+/* ---- Clase Liquid Glass para contenedores ---- */
+.liquid-glass {
+    background: rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Reflejo dinámico (brillo líquido) */
+.liquid-glass::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 40%, rgba(255,255,255,0.15) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+.liquid-glass:hover::before {
+    opacity: 1;
+}
+
+/* Borde con gradiente animado (efecto líquido) */
+.liquid-glass::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 26px;
+    padding: 2px;
+    background: conic-gradient(
+        from var(--angle, 0deg),
+        rgba(142, 68, 173, 0.5),
+        rgba(252, 163, 183, 0.5),
+        rgba(142, 68, 173, 0.5)
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    z-index: -1;
+    animation: spinBorder 6s linear infinite;
+    pointer-events: none;
+}
+
+@property --angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+@keyframes spinBorder {
+    to { --angle: 360deg; }
+}
+
+/* Ajuste para que el contenido quede por encima */
+.liquid-glass > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Variante más sutil para tarjetas pequeñas */
+.liquid-glass-subtle {
+    background: rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
+    transition: all 0.3s ease !important;
+}
+.liquid-glass-subtle:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15) !important;
+}
+
+/* Ajuste para modo oscuro (ya está integrado en las variables) */
+[data-theme="dark"] .liquid-glass {
+    background: rgba(10, 5, 20, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="dark"] .liquid-glass-subtle {
+    background: rgba(10, 5, 20, 0.15) !important;
+}
