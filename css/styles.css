@@ -1330,15 +1330,18 @@ main {
     justify-content: center;
     align-items: center;
     box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
-    z-index: 10000; /* Aumentado para estar por encima de todo */
-    transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+    z-index: 10000;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                background-color 0.3s ease, 
+                box-shadow 0.3s ease;
     text-decoration: none;
+    animation: whatsappPulse 2s infinite;
 }
 
 .whatsapp-float:hover {
-    transform: scale(1.15);
+    transform: scale(1.15) translateY(-12px);
     background-color: #1ebe5d;
-    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.6);
+    box-shadow: 0 12px 30px rgba(37, 211, 102, 0.5);
 }
 
 .whatsapp-float svg {
@@ -1346,17 +1349,42 @@ main {
     height: 32px;
     fill: currentColor;
     pointer-events: none;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Animación de pulso sutil (sin conflictos con hover) */
+.whatsapp-float:hover svg {
+    transform: scale(1.1) rotate(-10deg);
+}
+
+/* Animación de pulso sutil */
 @keyframes whatsappPulse {
     0% { box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4); }
     50% { box-shadow: 0 4px 25px rgba(37, 211, 102, 0.7); }
     100% { box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4); }
 }
 
-.whatsapp-float {
-    animation: whatsappPulse 2s infinite;
+/* Tooltip del botón WhatsApp */
+.whatsapp-float::after {
+    content: '¡Escríbenos!';
+    position: absolute;
+    right: 70px;
+    background: #1ebe5d;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(10px);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-float:hover::after {
+    opacity: 1;
+    transform: translateX(0);
 }
 
 /* Our Story Section */
