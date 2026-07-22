@@ -8,6 +8,8 @@
     <meta name="description" content="Panel de administración Velass&amp;Esencia – gestión de finanzas, inventario y redes sociales.">
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
@@ -55,13 +57,23 @@
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <main class="admin-container">
-        <!-- Tabs Navigation -->
+        <!-- Tabs Navigation con iconos -->
         <div class="admin-tabs">
-            <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
-            <button class="tab-btn" data-tab="finances">💰 Finanzas</button>
-            <button class="tab-btn" data-tab="inventory">📦 Inventario</button>
-            <button class="tab-btn" data-tab="reports">📈 Reportes</button>
-            <button class="tab-btn" data-tab="social">📱 Redes Sociales</button>
+            <button class="tab-btn active" data-tab="dashboard">
+                <i class="fas fa-chart-pie"></i> Dashboard
+            </button>
+            <button class="tab-btn" data-tab="finances">
+                <i class="fas fa-coins"></i> Finanzas
+            </button>
+            <button class="tab-btn" data-tab="inventory">
+                <i class="fas fa-boxes-stacked"></i> Inventario
+            </button>
+            <button class="tab-btn" data-tab="reports">
+                <i class="fas fa-chart-line"></i> Reportes
+            </button>
+            <button class="tab-btn" data-tab="social">
+                <i class="fas fa-share-nodes"></i> Redes Sociales
+            </button>
         </div>
 
         <!-- =================== DASHBOARD TAB =================== -->
@@ -69,25 +81,25 @@
             <section class="dashboard">
                 <h2>Resumen Rápido</h2>
                 <div class="stats-grid">
-                    <div class="stat-card success">
+                    <div class="stat-card success glass">
                         <h3>Ingresos Este Mes</h3>
                         <p class="stat-value" id="monthly-income">$0</p>
                         <p class="stat-detail" id="income-count">0 transacciones</p>
                         <span class="stat-trend flat" id="income-trend">→ Sin datos previos</span>
                     </div>
-                    <div class="stat-card danger">
+                    <div class="stat-card danger glass">
                         <h3>Egresos Este Mes</h3>
                         <p class="stat-value" id="monthly-expense">$0</p>
                         <p class="stat-detail" id="expense-count">0 transacciones</p>
                         <span class="stat-trend flat" id="expense-trend">→ Sin datos previos</span>
                     </div>
-                    <div class="stat-card primary">
+                    <div class="stat-card primary glass">
                         <h3>Ganancia Neta</h3>
                         <p class="stat-value" id="net-profit">$0</p>
                         <p class="stat-detail" id="profit-percentage">+0%</p>
                         <span class="stat-trend flat" id="profit-trend">→ Sin datos previos</span>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card glass">
                         <h3>Productos en Stock</h3>
                         <p class="stat-value" id="inventory-count">0</p>
                         <p class="stat-detail">Unidades disponibles</p>
@@ -97,15 +109,15 @@
 
             <!-- Charts Grid -->
             <section class="chart-section">
-                <div class="chart-container">
+                <div class="chart-container glass">
                     <h3>📅 Comparativa Ingresos vs Egresos (7 días)</h3>
                     <canvas id="weekChart"></canvas>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container glass">
                     <h3>🍩 Distribución de Gastos del Mes</h3>
                     <canvas id="expenseChart"></canvas>
                 </div>
-                <div class="chart-container chart-full-row">
+                <div class="chart-container chart-full-row glass">
                     <h3>📈 Tendencia Mensual del Año (Ingresos vs Egresos)</h3>
                     <canvas id="monthlyTrendChart"></canvas>
                 </div>
@@ -123,7 +135,7 @@
                 </div>
 
                 <!-- Add Transaction Form -->
-                <div class="transaction-form-container">
+                <div class="transaction-form-container glass">
                     <h3>Registrar Transacción</h3>
                     <form id="transaction-form" class="transaction-form">
                         <div class="form-row">
@@ -255,11 +267,11 @@
                 </div>
 
                 <div class="reports-grid">
-                    <div class="chart-container">
+                    <div class="chart-container glass">
                         <h3>📅 Ingresos Diarios del Mes</h3>
                         <canvas id="dailyIncomeChart"></canvas>
                     </div>
-                    <div class="chart-container">
+                    <div class="chart-container glass">
                         <h3>📊 Egresos por Categoría</h3>
                         <canvas id="categoryExpenseChart"></canvas>
                     </div>
@@ -336,7 +348,7 @@
 
     <!-- Modal for Add/Edit Product -->
     <div class="modal-overlay" id="product-modal">
-        <div class="modal-card">
+        <div class="modal-card glass">
             <h3 id="modal-title">Añadir Producto</h3>
             <form id="product-form">
                 <input type="hidden" id="prod-id">
@@ -380,7 +392,7 @@
 
     <!-- Modal for Add/Edit Material -->
     <div class="modal-overlay" id="material-modal">
-        <div class="modal-card">
+        <div class="modal-card glass">
             <h3 id="material-modal-title">Añadir Materia Prima</h3>
             <form id="material-form">
                 <input type="hidden" id="mat-id">
