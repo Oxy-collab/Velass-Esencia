@@ -651,18 +651,13 @@ main {
 }
 
 .product-title {
-    font-size: 1.25rem;
-    margin-bottom: 0.5rem;
+    color: #1a0b2e !important; /* Oscuro para modo claro */
+    font-weight: 600;
 }
 
 .product-desc {
-    color: var(--text-color);
-    opacity: 0.8;
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
-    height: 40px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: #4a235a !important; /* Morado oscuro legible */
+    opacity: 0.9;
 }
 
 .product-footer {
@@ -672,11 +667,20 @@ main {
 }
 
 .product-price {
-    font-weight: 600;
-    color: var(--primary-color);
+    color: #8E44AD !important; /* Morado principal */
+    font-weight: 700;
     font-size: 1.2rem;
 }
-
+/* Modo oscuro */
+[data-theme="dark"] .product-title {
+    color: #f4ecf7 !important;
+}
+[data-theme="dark"] .product-desc {
+    color: #d2b4de !important;
+}
+[data-theme="dark"] .product-price {
+    color: #c39bd3 !important;
+}
 /* Auth Pages */
 .auth-container {
     display: flex;
@@ -2225,16 +2229,46 @@ body::before {
     background: rgba(10, 5, 20, 0.15) !important;
 }
 .product-card {
-    background: rgba(255, 255, 255, 0.04) !important;
+    background: rgba(255, 255, 255, 0.85) !important; /* Fondo más opaco en modo claro */
     backdrop-filter: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
     border-radius: 16px !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
     transition: all 0.3s ease !important;
+    color: #1a0b2e !important; /* Texto oscuro para modo claro */
 }
 .product-card:hover {
-    background: rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
     transform: translateY(-5px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.15) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Modo oscuro: fondo más opaco y texto claro */
+[data-theme="dark"] .product-card {
+    background: rgba(20, 10, 35, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #f4ecf7 !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="dark"] .product-card:hover {
+    background: rgba(30, 20, 45, 0.95) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+}
+#catalog-section {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(4px);
+    border-radius: 24px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+[data-theme="dark"] #catalog-section {
+    background: rgba(0, 0, 0, 0.15);
+}
+/* Fondo con gradiente para toda la página (opcional) */
+body {
+    background: linear-gradient(135deg, #f5eef8 0%, #d9cde9 40%, #f5eef8 80%);
+}
+[data-theme="dark"] body {
+    background: linear-gradient(135deg, #1a0b2e 0%, #2d1b4e 40%, #1a0b2e 80%);
 }
