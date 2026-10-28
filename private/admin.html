@@ -463,9 +463,9 @@
             .then(res => res.ok ? res.json() : Promise.reject(new Error('sin sesión')))
             .then(user => {
                 if (!user || user.role !== 'admin') throw new Error('sin permisos');
-                localStorage.setItem('currentUser', JSON.stringify(user));
+                try { localStorage.setItem('currentUser', JSON.stringify(user)); } catch (e) { /* modo privado */ }
             })
-            .catch(() => { window.location.href = 'login.html?next=admin.html'; });
+            .catch(() => { window.location.href = '/login.html?next=admin.html'; });
     </script>
 </body>
 

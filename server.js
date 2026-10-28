@@ -11,7 +11,10 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '100kb' }));
 
-// --- SESIONES (cookie firmada, httpOnly, sin estado en servidor) ---
+// --- SESIONES (cookie firmada, httpOnly) ---
+// Además de la firma, cada petición comprueba que el usuario siga existiendo y que
+// su session_version no haya cambiado: así el logout (o un cambio de clave/rol)
+// invalida cookies ya emitidas, aunque la cookie sea válida criptográficamente.
 const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 let sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -40,25 +43,43 @@ app.use((req, res, next) => {
         } catch (err) { /* origen inválido: se rechaza abajo */ }
         return res.status(403).json({ error: 'Origen no permitido' });
     }
-    if (req.get('sec-fetch-site') === 'cross-site') {
+    // Sin Origin (curl/API): solo se exime si el navegador declara same-origin/none
+    const site = req.get('sec-fetch-site');
+    if (site && site !== 'same-origin' && site !== 'none') {
         return res.status(403).json({ error: 'Origen no permitido' });
     }
     return next();
 });
 
 // --- MIDDLEWARES DE AUTORIZACIÓN ---
-const requireAuth = (req, res, next) => {
-    if (!req.session || !req.session.user) return res.status(401).json({ error: 'No autenticado' });
-    next();
+const sessionUser = async (req) => {
+    const s = req.session && req.session.user;
+    if (!s || !s.id) return null;
+    const result = await pool.query('SELECT session_version FROM users WHERE id=$1', [s.id]);
+    if (!result.rows[0]) return null;
+    if (Number(result.rows[0].session_version) !== Number(s.sv)) return null;
+    return s;
 };
 
-const requireAdmin = (req, res, next) => {
-    if (!req.session || !req.session.user) return res.status(401).json({ error: 'No autenticado' });
-    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
-    next();
+const requireAuth = async (req, res, next) => {
+    try {
+        const user = await sessionUser(req);
+        if (!user) {
+            req.session = null;
+            return res.status(401).json({ error: 'No autenticado' });
+        }
+        req.sessionUser = user;
+        next();
+    } catch (err) {
+        console.error('Error validando la sesión:', err);
+        res.status(500).json({ error: 'Error interno' });
+    }
 };
 
-const isAdminSession = (req) => Boolean(req.session && req.session.user && req.session.user.role === 'admin');
+const requireAdmin = (req, res, next) => requireAuth(req, res, () => {
+    if (req.sessionUser.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+    next();
+});
 
 // --- CONEXIÓN A POSTGRESQL ---
 // Render y Neon requieren SSL para conexiones externas
@@ -84,6 +105,9 @@ const initDb = async () => {
             password TEXT NOT NULL,
             role TEXT DEFAULT 'user'
         )`);
+
+        // Columna de revocación de sesiones (idempotente para bases ya creadas)
+        await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0');
 
         await pool.query(`CREATE TABLE IF NOT EXISTS products (
             id SERIAL PRIMARY KEY,
@@ -238,23 +262,33 @@ app.delete('/api/transactions/:id', requireAdmin, async (req, res) => {
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const result = await pool.query('SELECT id, name, email, role FROM users WHERE email=$1 AND password=$2', [email, password]);
+        const result = await pool.query('SELECT id, name, email, role, session_version FROM users WHERE email=$1 AND password=$2', [email, password]);
         if (result.rows[0]) {
-            req.session.user = result.rows[0];
-            res.json(result.rows[0]);
+            const user = result.rows[0];
+            req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role, sv: user.session_version };
+            res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
         } else res.status(401).json({ error: 'Credenciales inválidas' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Devuelve el usuario de la sesión actual (401 si no hay sesión)
+// Devuelve el usuario de la sesión actual (401 si no hay sesión válida)
 app.get('/api/me', requireAuth, (req, res) => {
-    res.json(req.session.user);
+    const u = req.sessionUser;
+    res.json({ id: u.id, name: u.name, email: u.email, role: u.role });
 });
 
-// Cierra la sesión y borra la cookie
-app.post('/api/logout', (req, res) => {
+// Cierra la sesión: invalida en el servidor (bump de session_version) y borra la cookie
+app.post('/api/logout', async (req, res) => {
+    const current = req.session && req.session.user;
+    if (current && current.id) {
+        try {
+            await pool.query('UPDATE users SET session_version = session_version + 1 WHERE id=$1', [current.id]);
+        } catch (err) {
+            console.error('Error invalidando la sesión:', err);
+        }
+    }
     req.session = null;
     res.json({ success: true });
 });
@@ -269,8 +303,9 @@ app.post('/api/register', async (req, res) => {
             'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email, role',
             [name, email, password]
         );
-        req.session.user = result.rows[0];
-        res.status(201).json(result.rows[0]);
+        const user = result.rows[0];
+        req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role, sv: 0 };
+        res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -315,10 +350,37 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
 });
 
 // --- PANEL ADMIN: guardia del lado del servidor ---
-// Sin sesión de admin no se sirve la página (no depende de localStorage ni de JS)
-app.get(['/admin.html', '/admin'], (req, res) => {
-    if (!isAdminSession(req)) return res.redirect(302, '/login.html?next=admin.html');
-    res.sendFile(path.join(__dirname, 'admin.html'));
+// admin.html vive fuera del directorio estático para que no se pueda alcanzar
+// con variantes codificadas del path (%61dmin.html, //admin.html, etc.).
+app.get(['/admin', '/admin/'], (req, res) => res.redirect(302, '/admin.html'));
+
+app.get('/admin.html', async (req, res) => {
+    try {
+        const user = await sessionUser(req);
+        if (!user) {
+            req.session = null;
+            return res.redirect(302, '/login.html?next=admin.html');
+        }
+        if (user.role !== 'admin') return res.redirect(302, '/login.html?next=admin.html');
+        res.sendFile(path.join(__dirname, 'private', 'admin.html'));
+    } catch (err) {
+        console.error('Error validando el acceso al panel:', err);
+        res.status(500).type('text/plain').send('Error interno');
+    }
+});
+
+// --- BLOQUEO DE ARCHIVOS SENSIBLES DEL REPO ---
+const BLOCKED_STATIC = /^\/(?:\.git(?:\/|$)|\.env|node_modules(?:\/|$)|server\.js$|package(?:-lock)?\.json$|README\.md$)/i;
+app.use((req, res, next) => {
+    let pathname;
+    try {
+        pathname = decodeURIComponent(req.path);
+    } catch (err) {
+        return res.status(400).type('text/plain').send('Bad request');
+    }
+    pathname = pathname.replace(/\/{2,}/g, '/');
+    if (BLOCKED_STATIC.test(pathname)) return res.status(404).type('text/plain').send('Not found');
+    next();
 });
 
 // --- Fallback: static & SPA ---

@@ -47,14 +47,14 @@ const AppSystem = {
             const res = await fetch(`${API_BASE}/api/me`, { credentials: 'same-origin' });
             if (res.ok) {
                 this.authUser = await res.json();
-                localStorage.setItem('currentUser', JSON.stringify(this.authUser));
+                try { localStorage.setItem('currentUser', JSON.stringify(this.authUser)); } catch (e) { /* modo privado */ }
             } else {
                 this.authUser = null;
                 localStorage.removeItem('currentUser');
             }
         } catch (err) {
             this.authUser = null;
-            localStorage.removeItem('currentUser');
+            try { localStorage.removeItem('currentUser'); } catch (e) { /* modo privado */ }
         }
         this.renderAuthNav(this.authUser);
         return this.authUser;
@@ -430,13 +430,7 @@ const AuthSystem = {
 const AdminSystem = {
     // Solo para pintar la UI: la autorización real la valida el servidor.
     isAdmin() {
-        if (AppSystem.authUser) return AppSystem.authUser.role === 'admin';
-        try {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            return Boolean(currentUser && currentUser.role === 'admin');
-        } catch (err) {
-            return false;
-        }
+        return Boolean(AppSystem.authUser && AppSystem.authUser.role === 'admin');
     }
 };
 
