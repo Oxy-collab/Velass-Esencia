@@ -1,26 +1,64 @@
-// --- DEPENDENCIAS ---
+﻿// --- DEPENDENCIAS ---
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const cookieSession = require('cookie-session');
+const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg');
 const { hashPassword, verifyPassword, migrateLegacyPasswords } = require('./lib/passwords');
+const {
+    loginSchema,
+    registerSchema,
+    passwordChangeSchema,
+    productSchema,
+    transactionSchema,
+    settingSchema,
+    monthSchema,
+    idSchema,
+    validateBody,
+    validateParam
+} = require('./lib/validation');
 
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '100kb' }));
 
+// --- RATE LIMITING (login y registro) ---
+// Los intentos fallidos de login cuentan; los exitosos no (no bloquean a usuarios legÃ­timos).
+const rateLimitDisabled = process.env.DISABLE_RATE_LIMIT === '1';
+const RATE_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
+const LOGIN_MAX = Number(process.env.LOGIN_RATE_LIMIT_MAX) || 5;
+const REGISTER_MAX = Number(process.env.REGISTER_RATE_LIMIT_MAX) || 10;
+const noLimiter = (req, res, next) => next();
+
+const loginLimiter = rateLimitDisabled ? noLimiter : rateLimit({
+    windowMs: RATE_WINDOW_MS,
+    limit: LOGIN_MAX,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    message: { error: 'Demasiados intentos fallidos. Espera unos minutos e intÃ©ntalo de nuevo.' }
+});
+
+const registerLimiter = rateLimitDisabled ? noLimiter : rateLimit({
+    windowMs: RATE_WINDOW_MS,
+    limit: REGISTER_MAX,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Demasiados registros desde esta IP. IntÃ©ntalo mÃ¡s tarde.' }
+});
+
 // --- SESIONES (cookie firmada, httpOnly) ---
-// Además de la firma, cada petición comprueba que el usuario siga existiendo y que
-// su session_version no haya cambiado: así el logout (o un cambio de clave/rol)
-// invalida cookies ya emitidas, aunque la cookie sea válida criptográficamente.
+// AdemÃ¡s de la firma, cada peticiÃ³n comprueba que el usuario siga existiendo y que
+// su session_version no haya cambiado: asÃ­ el logout (o un cambio de clave/rol)
+// invalida cookies ya emitidas, aunque la cookie sea vÃ¡lida criptogrÃ¡ficamente.
 const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 let sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
     if (isProduction) {
-        console.warn('⚠️  SESSION_SECRET no definido: se usa uno temporal y las sesiones se invalidarán al reiniciar. Configúralo en Render.');
+        console.warn('âš ï¸  SESSION_SECRET no definido: se usa uno temporal y las sesiones se invalidarÃ¡n al reiniciar. ConfigÃºralo en Render.');
     }
     sessionSecret = crypto.randomBytes(32).toString('hex');
 }
@@ -33,7 +71,7 @@ app.use(cookieSession({
     secure: isProduction
 }));
 
-// --- PROTECCIÓN CSRF BÁSICA (Origin / Sec-Fetch-Site) ---
+// --- PROTECCIÃ“N CSRF BÃSICA (Origin / Sec-Fetch-Site) ---
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 app.use((req, res, next) => {
     if (!MUTATING_METHODS.has(req.method)) return next();
@@ -41,7 +79,7 @@ app.use((req, res, next) => {
     if (origin) {
         try {
             if (new URL(origin).host === req.get('host')) return next();
-        } catch (err) { /* origen inválido: se rechaza abajo */ }
+        } catch (err) { /* origen invÃ¡lido: se rechaza abajo */ }
         return res.status(403).json({ error: 'Origen no permitido' });
     }
     // Sin Origin (curl/API): solo se exime si el navegador declara same-origin/none
@@ -52,7 +90,7 @@ app.use((req, res, next) => {
     return next();
 });
 
-// --- MIDDLEWARES DE AUTORIZACIÓN ---
+// --- MIDDLEWARES DE AUTORIZACIÃ“N ---
 const sessionUser = async (req) => {
     const s = req.session && req.session.user;
     if (!s || !s.id) return null;
@@ -72,7 +110,7 @@ const requireAuth = async (req, res, next) => {
         req.sessionUser = user;
         next();
     } catch (err) {
-        console.error('Error validando la sesión:', err);
+        console.error('Error validando la sesiÃ³n:', err);
         res.status(500).json({ error: 'Error interno' });
     }
 };
@@ -82,7 +120,7 @@ const requireAdmin = (req, res, next) => requireAuth(req, res, () => {
     next();
 });
 
-// --- CONEXIÓN A POSTGRESQL ---
+// --- CONEXIÃ“N A POSTGRESQL ---
 // Render y Neon requieren SSL para conexiones externas
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -91,12 +129,12 @@ const pool = new Pool({
     }
 });
 
-// Mensaje de conexión
+// Mensaje de conexiÃ³n
 pool.on('connect', () => {
-    console.log('✅ Conectado a la base de datos PostgreSQL');
+    console.log('âœ… Conectado a la base de datos PostgreSQL');
 });
 
-// --- INICIALIZACIÓN DE TABLAS ---
+// --- INICIALIZACIÃ“N DE TABLAS ---
 const initDb = async () => {
     try {
         await pool.query(`CREATE TABLE IF NOT EXISTS users (
@@ -107,21 +145,21 @@ const initDb = async () => {
             role TEXT DEFAULT 'user'
         )`);
 
-        // Columna de revocación de sesiones (idempotente para bases ya creadas)
+        // Columna de revocaciÃ³n de sesiones (idempotente para bases ya creadas)
         await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0');
 
-        // Contraseñas: columna de hash + migración de las que estaban en texto plano.
-        // La columna antigua `password` queda como cadena vacía (sin secreto).
+        // ContraseÃ±as: columna de hash + migraciÃ³n de las que estaban en texto plano.
+        // La columna antigua `password` queda como cadena vacÃ­a (sin secreto).
         await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
         const migrated = await migrateLegacyPasswords(pool);
         if (migrated > 0) {
-            console.log(`🔐 ${migrated} contraseña(s) migradas a hash bcrypt`);
+            console.log(`ðŸ” ${migrated} contraseÃ±a(s) migradas a hash bcrypt`);
         }
 
         await pool.query(`CREATE TABLE IF NOT EXISTS products (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
-            category TEXT DEFAULT 'línea Bloom',
+            category TEXT DEFAULT 'lÃ­nea Bloom',
             description TEXT,
             price REAL NOT NULL,
             stock INTEGER DEFAULT 0,
@@ -143,45 +181,45 @@ const initDb = async () => {
             value TEXT
         )`);
 
-        // Seed admin SOLO si se configuró ADMIN_EMAIL/ADMIN_PASSWORD.
-        // Nunca se crean credenciales por defecto en el código.
+        // Seed admin SOLO si se configurÃ³ ADMIN_EMAIL/ADMIN_PASSWORD.
+        // Nunca se crean credenciales por defecto en el cÃ³digo.
         const userCount = await pool.query('SELECT COUNT(*) as count FROM users');
         if (parseInt(userCount.rows[0].count) === 0) {
             if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
                 if (String(process.env.ADMIN_PASSWORD).length < 8) {
-                    console.warn('⚠️  ADMIN_PASSWORD debe tener al menos 8 caracteres: no se creó el admin.');
+                    console.warn('âš ï¸  ADMIN_PASSWORD debe tener al menos 8 caracteres: no se creÃ³ el admin.');
                 } else {
                     const adminHash = await hashPassword(process.env.ADMIN_PASSWORD);
                     await pool.query("INSERT INTO users (name, email, password, password_hash, role) VALUES ($1, $2, $3, $4, $5)", [
                         'Admin', process.env.ADMIN_EMAIL, '', adminHash, 'admin'
                     ]);
-                    console.log('👤 Usuario admin creado desde ADMIN_EMAIL/ADMIN_PASSWORD');
+                    console.log('ðŸ‘¤ Usuario admin creado desde ADMIN_EMAIL/ADMIN_PASSWORD');
                 }
             } else {
-                console.warn('ℹ️  No hay usuarios: define ADMIN_EMAIL y ADMIN_PASSWORD (o ejecuta npm run create-admin) para crear el admin.');
+                console.warn('â„¹ï¸  No hay usuarios: define ADMIN_EMAIL y ADMIN_PASSWORD (o ejecuta npm run create-admin) para crear el admin.');
             }
         }
 
-        // Seed productos si está vacío
+        // Seed productos si estÃ¡ vacÃ­o
         const productCount = await pool.query('SELECT COUNT(*) as count FROM products');
         if (parseInt(productCount.rows[0].count) === 0) {
             const products = [
-                ['Bloom mediana', 'Línea Bloom', 'Vela en envase de vidrio con acabado floral decorativo.', 16000, 50, "https://image2url.com/r2/default/images/1774500184090-f4e22a54-d1e1-4127-b289-8504aa0c7e0f.png"],
-                ['Bloom grande', 'Línea Bloom', 'Versión con mayor duración.', 25000, 30, "https://image2url.com/r2/default/images/1774500136789-712ec0b7-e753-4547-9123-44a42a27b881.png"],
-                ['Set Corazón', 'Mini Scents', '2 velas medianas.', 15000, 40, "https://image2url.com/r2/default/images/1774539969550-b67adcd9-110f-410c-8837-cbedca573d74.png"],
-                ['Set Rosas', 'Mini Scents', '4 velas pequeñas. Perfectas para elegir tu aroma favorito.', 18000, 40, "https://image2url.com/r2/default/images/1774540024937-11d17a21-55a1-4590-914a-be3dc3fe7a04.png"],
-                ['Terrario', 'Terrario', 'Decorada con estilo natural (tipo cactus o jardín). Perfecta como pieza decorativa.', 30000, 20, "https://image2url.com/r2/default/images/1774456169936-048cc335-e743-44f8-bd9b-7a5895f7a59f.png"],
-                ['Mascota personalizada', 'Linea Pet soul', 'Convierte a tu mascota en un recuerdo único.', 32000, 15, "https://image2url.com/r2/default/images/1774456213828-a2b210eb-a703-4641-b1f0-5002154caa8c.png"],
+                ['Bloom mediana', 'LÃ­nea Bloom', 'Vela en envase de vidrio con acabado floral decorativo.', 16000, 50, "https://image2url.com/r2/default/images/1774500184090-f4e22a54-d1e1-4127-b289-8504aa0c7e0f.png"],
+                ['Bloom grande', 'LÃ­nea Bloom', 'VersiÃ³n con mayor duraciÃ³n.', 25000, 30, "https://image2url.com/r2/default/images/1774500136789-712ec0b7-e753-4547-9123-44a42a27b881.png"],
+                ['Set CorazÃ³n', 'Mini Scents', '2 velas medianas.', 15000, 40, "https://image2url.com/r2/default/images/1774539969550-b67adcd9-110f-410c-8837-cbedca573d74.png"],
+                ['Set Rosas', 'Mini Scents', '4 velas pequeÃ±as. Perfectas para elegir tu aroma favorito.', 18000, 40, "https://image2url.com/r2/default/images/1774540024937-11d17a21-55a1-4590-914a-be3dc3fe7a04.png"],
+                ['Terrario', 'Terrario', 'Decorada con estilo natural (tipo cactus o jardÃ­n). Perfecta como pieza decorativa.', 30000, 20, "https://image2url.com/r2/default/images/1774456169936-048cc335-e743-44f8-bd9b-7a5895f7a59f.png"],
+                ['Mascota personalizada', 'Linea Pet soul', 'Convierte a tu mascota en un recuerdo Ãºnico.', 32000, 15, "https://image2url.com/r2/default/images/1774456213828-a2b210eb-a703-4641-b1f0-5002154caa8c.png"],
                 ['Mascota en base de barro', 'Linea Pet soul', 'Incluye base decorativa.', 40000, 10, "https://image2url.com/r2/default/images/1774456258303-f585d637-ac43-4298-bb7b-5ddef781e81b.png"]
             ];
 
             for (const p of products) {
                 await pool.query("INSERT INTO products (name, category, description, price, stock, img) VALUES ($1, $2, $3, $4, $5, $6)", p);
             }
-            console.log('📦 Productos iniciales creados');
+            console.log('ðŸ“¦ Productos iniciales creados');
         }
     } catch (err) {
-        console.error('❌ Error inicializando la base de datos:', err);
+        console.error('âŒ Error inicializando la base de datos:', err);
     }
 };
 
@@ -193,49 +231,53 @@ app.get('/api/products', async (req, res) => {
         const result = await pool.query('SELECT * FROM products ORDER BY id ASC');
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
-app.post('/api/products', requireAdmin, async (req, res) => {
+app.post('/api/products', requireAdmin, validateBody(productSchema), async (req, res) => {
     const { name, category, description, price, stock, img } = req.body;
     try {
         const result = await pool.query(
             'INSERT INTO products (name, category, description, price, stock, img) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '']
+            [name, category || 'lÃ­nea Bloom', description, price, stock, img || '']
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
-app.put('/api/products/:id', requireAdmin, async (req, res) => {
+app.put('/api/products/:id', requireAdmin, validateParam('id', idSchema), validateBody(productSchema), async (req, res) => {
     const { id } = req.params;
     const { name, category, description, price, stock, img } = req.body;
     try {
         const result = await pool.query(
             'UPDATE products SET name=$1, category=$2, description=$3, price=$4, stock=$5, img=$6 WHERE id=$7 RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '', id]
+            [name, category || 'lÃ­nea Bloom', description, price, stock, img || '', id]
         );
         res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
-app.delete('/api/products/:id', requireAdmin, async (req, res) => {
+app.delete('/api/products/:id', requireAdmin, validateParam('id', idSchema), async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM products WHERE id = $1', [id]);
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
 // --- API: TRANSACCIONES ---
-app.post('/api/transactions', requireAdmin, async (req, res) => {
+app.post('/api/transactions', requireAdmin, validateBody(transactionSchema), async (req, res) => {
     const { type, category, amount, date, description } = req.body;
     try {
         const result = await pool.query(
@@ -244,7 +286,8 @@ app.post('/api/transactions', requireAdmin, async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
@@ -253,32 +296,35 @@ app.get('/api/transactions', requireAdmin, async (req, res) => {
         const result = await pool.query('SELECT * FROM transactions ORDER BY date DESC, created_at DESC');
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
-app.get('/api/transactions/:month', requireAdmin, async (req, res) => {
+app.get('/api/transactions/:month', requireAdmin, validateParam('month', monthSchema), async (req, res) => {
     const { month } = req.params;
     try {
         const result = await pool.query('SELECT * FROM transactions WHERE date LIKE $1 ORDER BY date DESC', [`${month}%`]);
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
-app.delete('/api/transactions/:id', requireAdmin, async (req, res) => {
+app.delete('/api/transactions/:id', requireAdmin, validateParam('id', idSchema), async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM transactions WHERE id = $1', [id]);
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
 // --- API: USERS ---
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter, validateBody(loginSchema), async (req, res) => {
     const { email, password } = req.body || {};
     try {
         const result = await pool.query(
@@ -292,7 +338,7 @@ app.post('/api/login', async (req, res) => {
             if (row.password_hash) {
                 valid = await verifyPassword(password, row.password_hash);
             } else if (row.password) {
-                // Compatibilidad con contraseñas antiguas en texto plano: se migran al vuelo
+                // Compatibilidad con contraseÃ±as antiguas en texto plano: se migran al vuelo
                 valid = String(password) === String(row.password);
                 if (valid) {
                     const hash = await hashPassword(password);
@@ -301,7 +347,7 @@ app.post('/api/login', async (req, res) => {
             }
         }
 
-        if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
+        if (!valid) return res.status(401).json({ error: 'Credenciales invÃ¡lidas' });
 
         req.session.user = { id: row.id, name: row.name, email: row.email, role: row.role, sv: row.session_version };
         res.json({ id: row.id, name: row.name, email: row.email, role: row.role });
@@ -311,34 +357,28 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Devuelve el usuario de la sesión actual (401 si no hay sesión válida)
+// Devuelve el usuario de la sesiÃ³n actual (401 si no hay sesiÃ³n vÃ¡lida)
 app.get('/api/me', requireAuth, (req, res) => {
     const u = req.sessionUser;
     res.json({ id: u.id, name: u.name, email: u.email, role: u.role });
 });
 
-// Cierra la sesión: invalida en el servidor (bump de session_version) y borra la cookie
+// Cierra la sesiÃ³n: invalida en el servidor (bump de session_version) y borra la cookie
 app.post('/api/logout', async (req, res) => {
     const current = req.session && req.session.user;
     if (current && current.id) {
         try {
             await pool.query('UPDATE users SET session_version = session_version + 1 WHERE id=$1', [current.id]);
         } catch (err) {
-            console.error('Error invalidando la sesión:', err);
+            console.error('Error invalidando la sesiÃ³n:', err);
         }
     }
     req.session = null;
     res.json({ success: true });
 });
 
-app.post('/api/register', async (req, res) => {
-    const { name, email, password } = req.body || {};
-    if (!name || !email || !password) {
-        return res.status(400).json({ error: 'Faltan nombre, correo o contraseña' });
-    }
-    if (String(password).length < 8) {
-        return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
-    }
+app.post('/api/register', registerLimiter, validateBody(registerSchema), async (req, res) => {
+    const { name, email, password } = req.body;
     try {
         const existing = await pool.query('SELECT id FROM users WHERE email=$1', [email]);
         if (existing.rows[0]) return res.status(400).json({ error: 'El correo ya existe' });
@@ -357,16 +397,10 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// Cambio de contraseña del propio usuario (requiere la contraseña actual).
+// Cambio de contraseÃ±a del propio usuario (requiere la contraseÃ±a actual).
 // Al cambiarla se incrementa session_version: se cierran todas sus sesiones.
-app.put('/api/users/me/password', requireAuth, async (req, res) => {
-    const { currentPassword, newPassword } = req.body || {};
-    if (!currentPassword || !newPassword) {
-        return res.status(400).json({ error: 'Faltan la contraseña actual y la nueva' });
-    }
-    if (String(newPassword).length < 8) {
-        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
-    }
+app.put('/api/users/me/password', requireAuth, validateBody(passwordChangeSchema), async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
     try {
         const result = await pool.query('SELECT password_hash, password FROM users WHERE id=$1', [req.sessionUser.id]);
         const row = result.rows[0];
@@ -376,7 +410,7 @@ app.put('/api/users/me/password', requireAuth, async (req, res) => {
         } else if (row && row.password) {
             valid = String(currentPassword) === String(row.password);
         }
-        if (!valid) return res.status(403).json({ error: 'La contraseña actual no es correcta' });
+        if (!valid) return res.status(403).json({ error: 'La contraseÃ±a actual no es correcta' });
 
         const newHash = await hashPassword(newPassword);
         await pool.query(
@@ -384,9 +418,9 @@ app.put('/api/users/me/password', requireAuth, async (req, res) => {
             [newHash, req.sessionUser.id]
         );
         req.session = null;
-        res.json({ success: true, message: 'Contraseña actualizada. Inicia sesión de nuevo.' });
+        res.json({ success: true, message: 'ContraseÃ±a actualizada. Inicia sesiÃ³n de nuevo.' });
     } catch (err) {
-        console.error('Error cambiando la contraseña:', err);
+        console.error('Error cambiando la contraseÃ±a:', err);
         res.status(500).json({ error: 'Error interno' });
     }
 });
@@ -396,12 +430,13 @@ app.get('/api/users/count', requireAdmin, async (req, res) => {
         const result = await pool.query('SELECT COUNT(*) as count FROM users');
         res.json({ count: result.rows[0].count });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
 // --- API: SETTINGS ---
-// Las claves social_* son públicas (las usa la portada); el resto requiere admin.
+// Las claves social_* son pÃºblicas (las usa la portada); el resto requiere admin.
 const publicSettingKey = (key) => String(key).startsWith('social_');
 
 app.get('/api/settings/:key', (req, res, next) => {
@@ -412,11 +447,12 @@ app.get('/api/settings/:key', (req, res, next) => {
         const result = await pool.query('SELECT value FROM settings WHERE key=$1', [req.params.key]);
         res.json({ value: result.rows[0] ? result.rows[0].value : null });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
-app.post('/api/settings', requireAdmin, async (req, res) => {
+app.post('/api/settings', requireAdmin, validateBody(settingSchema), async (req, res) => {
     const { key, value } = req.body;
     try {
         await pool.query(
@@ -425,12 +461,13 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
         );
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
 // --- PANEL ADMIN: guardia del lado del servidor ---
-// admin.html vive fuera del directorio estático para que no se pueda alcanzar
+// admin.html vive fuera del directorio estÃ¡tico para que no se pueda alcanzar
 // con variantes codificadas del path (%61dmin.html, //admin.html, etc.).
 app.get(['/admin', '/admin/'], (req, res) => res.redirect(302, '/admin.html'));
 
@@ -472,5 +509,6 @@ app.get('*', (req, res) => {
 // --- Run server ---
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`ðŸš€ Servidor corriendo en http://localhost:${PORT}`);
 });
+

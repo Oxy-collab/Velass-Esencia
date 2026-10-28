@@ -50,11 +50,14 @@ curl -X PUT https://<tu-dominio>/api/users/me/password \
 ## Seguridad (estado actual)
 
 - Contraseñas con **bcrypt** (`bcryptjs`; `BCRYPT_ROUNDS` configurable, 10 por defecto). Las contraseñas antiguas en texto plano se migran a hash al arrancar el servidor (y al vuelo en el primer login).
+- **Validación de entrada con `zod`** en login, registro, productos, transacciones, settings y cambio de contraseña (longitudes, tipos, precios positivos, fechas `YYYY-MM-DD`). Los campos desconocidos se descartan.
+- **Rate limit** en `/api/login` (5 intentos fallidos / 15 min por IP; los logins correctos no cuentan) y `/api/register` (10 / 15 min). Configurable con `LOGIN_RATE_LIMIT_MAX`, `REGISTER_RATE_LIMIT_MAX` y `RATE_LIMIT_WINDOW_MS`; `DISABLE_RATE_LIMIT=1` solo para pruebas.
+- Los errores internos responden `{ "error": "Error interno" }` (sin filtrar `err.message`).
 - Sesión con cookie firmada `httpOnly`/`SameSite=Lax`; 8 h; `Secure` en producción.
 - `requireAdmin` en productos, transacciones, usuarios y settings.
 - `/admin.html` se sirve solo con sesión de admin (`private/admin.html`, fuera del estático).
 - Bloqueo de `/.git`, `node_modules`, `server.js`, `package.json` y similares en el estático.
-- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): rate limit en login/registro, CSP/XSS, mover estáticos a `public/`.
+- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): CSP/XSS, mover estáticos a `public/`, CSRF token, money como `NUMERIC`.
 
 ## Estructura
 
