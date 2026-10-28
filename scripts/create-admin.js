@@ -8,6 +8,7 @@
 // sesiones (session_version + 1).
 
 const { Pool } = require('pg');
+const { hashPassword } = require('../lib/passwords');
 
 const email = process.env.ADMIN_EMAIL || process.argv[2];
 const password = process.env.ADMIN_PASSWORD || process.argv[3];
@@ -38,16 +39,19 @@ const pool = new Pool({
         role TEXT DEFAULT 'user'
     )`);
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
 
+    const passwordHash = await hashPassword(password);
     const result = await pool.query(
-        `INSERT INTO users (name, email, password, role)
-         VALUES ($1, $2, $3, 'admin')
+        `INSERT INTO users (name, email, password, password_hash, role)
+         VALUES ($1, $2, '', $3, 'admin')
          ON CONFLICT (email) DO UPDATE
-            SET password = EXCLUDED.password,
+            SET password_hash = EXCLUDED.password_hash,
+                password = '',
                 role = 'admin',
                 session_version = users.session_version + 1
          RETURNING id, name, email, role`,
-        [name, email, password]
+        [name, email, passwordHash]
     );
 
     console.log('✅ Admin listo:', result.rows[0].email, '| rol:', result.rows[0].role);

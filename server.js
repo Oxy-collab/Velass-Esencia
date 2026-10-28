@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const cookieSession = require('cookie-session');
 const { Pool } = require('pg');
+const { hashPassword, verifyPassword, migrateLegacyPasswords } = require('./lib/passwords');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -109,6 +110,14 @@ const initDb = async () => {
         // Columna de revocación de sesiones (idempotente para bases ya creadas)
         await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0');
 
+        // Contraseñas: columna de hash + migración de las que estaban en texto plano.
+        // La columna antigua `password` queda como cadena vacía (sin secreto).
+        await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
+        const migrated = await migrateLegacyPasswords(pool);
+        if (migrated > 0) {
+            console.log(`🔐 ${migrated} contraseña(s) migradas a hash bcrypt`);
+        }
+
         await pool.query(`CREATE TABLE IF NOT EXISTS products (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
@@ -142,8 +151,9 @@ const initDb = async () => {
                 if (String(process.env.ADMIN_PASSWORD).length < 8) {
                     console.warn('⚠️  ADMIN_PASSWORD debe tener al menos 8 caracteres: no se creó el admin.');
                 } else {
-                    await pool.query("INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)", [
-                        'Admin', process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD, 'admin'
+                    const adminHash = await hashPassword(process.env.ADMIN_PASSWORD);
+                    await pool.query("INSERT INTO users (name, email, password, password_hash, role) VALUES ($1, $2, $3, $4, $5)", [
+                        'Admin', process.env.ADMIN_EMAIL, '', adminHash, 'admin'
                     ]);
                     console.log('👤 Usuario admin creado desde ADMIN_EMAIL/ADMIN_PASSWORD');
                 }
@@ -269,16 +279,35 @@ app.delete('/api/transactions/:id', requireAdmin, async (req, res) => {
 
 // --- API: USERS ---
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
     try {
-        const result = await pool.query('SELECT id, name, email, role, session_version FROM users WHERE email=$1 AND password=$2', [email, password]);
-        if (result.rows[0]) {
-            const user = result.rows[0];
-            req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role, sv: user.session_version };
-            res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
-        } else res.status(401).json({ error: 'Credenciales inválidas' });
+        const result = await pool.query(
+            'SELECT id, name, email, role, session_version, password_hash, password FROM users WHERE email=$1',
+            [email]
+        );
+        const row = result.rows[0];
+        let valid = false;
+
+        if (row) {
+            if (row.password_hash) {
+                valid = await verifyPassword(password, row.password_hash);
+            } else if (row.password) {
+                // Compatibilidad con contraseñas antiguas en texto plano: se migran al vuelo
+                valid = String(password) === String(row.password);
+                if (valid) {
+                    const hash = await hashPassword(password);
+                    await pool.query("UPDATE users SET password_hash=$1, password='' WHERE id=$2", [hash, row.id]);
+                }
+            }
+        }
+
+        if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+        req.session.user = { id: row.id, name: row.name, email: row.email, role: row.role, sv: row.session_version };
+        res.json({ id: row.id, name: row.name, email: row.email, role: row.role });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Error en el login:', err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
@@ -303,20 +332,28 @@ app.post('/api/logout', async (req, res) => {
 });
 
 app.post('/api/register', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password } = req.body || {};
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: 'Faltan nombre, correo o contraseña' });
+    }
+    if (String(password).length < 8) {
+        return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    }
     try {
         const existing = await pool.query('SELECT id FROM users WHERE email=$1', [email]);
         if (existing.rows[0]) return res.status(400).json({ error: 'El correo ya existe' });
-        
+
+        const passwordHash = await hashPassword(password);
         const result = await pool.query(
-            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email, role',
-            [name, email, password]
+            "INSERT INTO users (name, email, password, password_hash) VALUES ($1, $2, '', $3) RETURNING id, name, email, role",
+            [name, email, passwordHash]
         );
         const user = result.rows[0];
         req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role, sv: 0 };
         res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Error en el registro:', err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
@@ -331,10 +368,21 @@ app.put('/api/users/me/password', requireAuth, async (req, res) => {
         return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
     }
     try {
-        const check = await pool.query('SELECT id FROM users WHERE id=$1 AND password=$2', [req.sessionUser.id, currentPassword]);
-        if (!check.rows[0]) return res.status(403).json({ error: 'La contraseña actual no es correcta' });
+        const result = await pool.query('SELECT password_hash, password FROM users WHERE id=$1', [req.sessionUser.id]);
+        const row = result.rows[0];
+        let valid = false;
+        if (row && row.password_hash) {
+            valid = await verifyPassword(currentPassword, row.password_hash);
+        } else if (row && row.password) {
+            valid = String(currentPassword) === String(row.password);
+        }
+        if (!valid) return res.status(403).json({ error: 'La contraseña actual no es correcta' });
 
-        await pool.query('UPDATE users SET password=$1, session_version=session_version+1 WHERE id=$2', [newPassword, req.sessionUser.id]);
+        const newHash = await hashPassword(newPassword);
+        await pool.query(
+            "UPDATE users SET password_hash=$1, password='', session_version=session_version+1 WHERE id=$2",
+            [newHash, req.sessionUser.id]
+        );
         req.session = null;
         res.json({ success: true, message: 'Contraseña actualizada. Inicia sesión de nuevo.' });
     } catch (err) {
