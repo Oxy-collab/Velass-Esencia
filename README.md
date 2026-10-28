@@ -49,11 +49,12 @@ curl -X PUT https://<tu-dominio>/api/users/me/password \
 
 ## Seguridad (estado actual)
 
+- Contraseñas con **bcrypt** (`bcryptjs`; `BCRYPT_ROUNDS` configurable, 10 por defecto). Las contraseñas antiguas en texto plano se migran a hash al arrancar el servidor (y al vuelo en el primer login).
 - Sesión con cookie firmada `httpOnly`/`SameSite=Lax`; 8 h; `Secure` en producción.
 - `requireAdmin` en productos, transacciones, usuarios y settings.
 - `/admin.html` se sirve solo con sesión de admin (`private/admin.html`, fuera del estático).
 - Bloqueo de `/.git`, `node_modules`, `server.js`, `package.json` y similares en el estático.
-- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): hash de contraseñas, rate limit, CSP/XSS, mover estáticos a `public/`.
+- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): rate limit en login/registro, CSP/XSS, mover estáticos a `public/`.
 
 ## Estructura
 
