@@ -458,13 +458,14 @@
 
     <script src="js/admin.js"></script>
     <script>
-        // Restrict page access
-        setTimeout(() => {
-            if (!AdminSystem.isAdmin()) {
-                alert('Acceso denegado. Redirigiendo al inicio...');
-                window.location.href = 'index.html';
-            }
-        }, 100);
+        // El servidor ya bloquea /admin.html sin sesión; esto cubre caché o sesión vencida.
+        fetch('/api/me', { credentials: 'same-origin' })
+            .then(res => res.ok ? res.json() : Promise.reject(new Error('sin sesión')))
+            .then(user => {
+                if (!user || user.role !== 'admin') throw new Error('sin permisos');
+                try { localStorage.setItem('currentUser', JSON.stringify(user)); } catch (e) { /* modo privado */ }
+            })
+            .catch(() => { window.location.href = '/login.html?next=admin.html'; });
     </script>
 </body>
 

@@ -5,6 +5,21 @@
 
 const API_BASE = '';  // Same origin, no prefix needed
 
+// --- Sesión: la autoridad es el servidor (cookie httpOnly) ---
+// Si una llamada al panel devuelve 401 (sesión vencida), se vuelve al login.
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+    const res = await nativeFetch(...args);
+    try {
+        const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+        const isAuthCall = url.includes('/api/me') || url.includes('/api/login') || url.includes('/api/register');
+        if (res.status === 401 && !isAuthCall && window.location.pathname.includes('admin')) {
+            window.location.href = 'login.html?next=admin.html';
+        }
+    } catch (err) { /* nunca romper la petición */ }
+    return res;
+};
+
 // Normalize categories (map variants to canonical labels)
 function normalizeCategory(cat) {
     if (!cat) return 'Línea Bloom';
@@ -19,9 +34,61 @@ function normalizeCategory(cat) {
 
 // Core System
 const AppSystem = {
+    authUser: null,
+
     async init() {
-        this.checkAuth();
+        await this.refreshAuth();
         this.setupNavigation();
+    },
+
+    // La sesión real vive en una cookie httpOnly: el servidor decide quién es quién.
+    async refreshAuth() {
+        try {
+            const res = await fetch(`${API_BASE}/api/me`, { credentials: 'same-origin' });
+            if (res.ok) {
+                this.authUser = await res.json();
+                try { localStorage.setItem('currentUser', JSON.stringify(this.authUser)); } catch (e) { /* modo privado */ }
+            } else {
+                this.authUser = null;
+                localStorage.removeItem('currentUser');
+            }
+        } catch (err) {
+            this.authUser = null;
+            try { localStorage.removeItem('currentUser'); } catch (e) { /* modo privado */ }
+        }
+        this.renderAuthNav(this.authUser);
+        return this.authUser;
+    },
+
+    renderAuthNav(currentUser) {
+        const navLogin = document.getElementById('nav-login');
+        const navLogout = document.getElementById('nav-logout');
+        const navAdmin = document.getElementById('nav-admin');
+
+        if (currentUser) {
+            if (navLogin) navLogin.style.display = 'none';
+            if (navLogout) navLogout.style.display = 'flex';
+            if (navAdmin) navAdmin.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+        } else {
+            if (navLogin) navLogin.style.display = 'flex';
+            if (navLogout) navLogout.style.display = 'none';
+            if (navAdmin) navAdmin.style.display = 'none';
+        }
+    },
+
+    setupNavigation() {
+        const logoutBtn = document.getElementById('nav-logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    await fetch(`${API_BASE}/api/logout`, { method: 'POST', credentials: 'same-origin' });
+                } catch (err) { /* la sesión local se limpia igual */ }
+                this.authUser = null;
+                localStorage.removeItem('currentUser');
+                window.location.href = 'index.html';
+            });
+        }
     },
 
     async getProducts() {
@@ -42,36 +109,6 @@ const AppSystem = {
             return await res.json();
         } catch (err) {
             return { count: 0 };
-        }
-    },
-
-    checkAuth() {
-        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        const navLogin = document.getElementById('nav-login');
-        const navLogout = document.getElementById('nav-logout');
-        const navAdmin = document.getElementById('nav-admin');
-
-        if (currentUser) {
-            if (navLogin) navLogin.style.display = 'none';
-            if (navLogout) navLogout.style.display = 'flex';
-            if (currentUser.role === 'admin' && navAdmin) {
-                navAdmin.style.display = 'flex';
-            }
-        } else {
-            if (navLogin) navLogin.style.display = 'flex';
-            if (navLogout) navLogout.style.display = 'none';
-            if (navAdmin) navAdmin.style.display = 'none';
-        }
-    },
-
-    setupNavigation() {
-        const logoutBtn = document.getElementById('nav-logout');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                localStorage.removeItem('currentUser');
-                window.location.href = 'index.html';
-            });
         }
     }
 };
@@ -341,13 +378,17 @@ const AuthSystem = {
             const res = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({ email, password })
             });
 
             if (res.ok) {
                 const user = await res.json();
-                localStorage.setItem('currentUser', JSON.stringify({ name: user.name, email: user.email, role: user.role }));
-                window.location.href = user.role === 'admin' ? 'admin.html' : 'index.html';
+                AppSystem.authUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                const next = new URLSearchParams(window.location.search).get('next');
+                const target = user.role === 'admin' ? 'admin.html' : 'index.html';
+                window.location.href = (next === 'admin.html' && user.role === 'admin') ? next : target;
             } else {
                 alert('Credenciales incorrectas');
             }
@@ -366,12 +407,14 @@ const AuthSystem = {
             const res = await fetch(`${API_BASE}/api/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({ name, email, password })
             });
 
             if (res.ok) {
                 const user = await res.json();
-                localStorage.setItem('currentUser', JSON.stringify({ name: user.name, email: user.email, role: user.role }));
+                AppSystem.authUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
                 window.location.href = 'index.html';
             } else {
                 const data = await res.json();
@@ -385,9 +428,9 @@ const AuthSystem = {
 
 // Admin System - Utility and Placeholder for admin.js
 const AdminSystem = {
+    // Solo para pintar la UI: la autorización real la valida el servidor.
     isAdmin() {
-        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        return currentUser && currentUser.role === 'admin';
+        return Boolean(AppSystem.authUser && AppSystem.authUser.role === 'admin');
     }
 };
 
