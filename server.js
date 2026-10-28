@@ -2,11 +2,63 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
+const cookieSession = require('cookie-session');
 const { Pool } = require('pg');
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+
+// --- SESIONES (cookie firmada, httpOnly, sin estado en servidor) ---
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+    if (isProduction) {
+        console.warn('⚠️  SESSION_SECRET no definido: se usa uno temporal y las sesiones se invalidarán al reiniciar. Configúralo en Render.');
+    }
+    sessionSecret = crypto.randomBytes(32).toString('hex');
+}
+app.use(cookieSession({
+    name: 'ves.sid',
+    keys: [sessionSecret],
+    maxAge: 8 * 60 * 60 * 1000, // 8 h
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProduction
+}));
+
+// --- PROTECCIÓN CSRF BÁSICA (Origin / Sec-Fetch-Site) ---
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+app.use((req, res, next) => {
+    if (!MUTATING_METHODS.has(req.method)) return next();
+    const origin = req.get('origin');
+    if (origin) {
+        try {
+            if (new URL(origin).host === req.get('host')) return next();
+        } catch (err) { /* origen inválido: se rechaza abajo */ }
+        return res.status(403).json({ error: 'Origen no permitido' });
+    }
+    if (req.get('sec-fetch-site') === 'cross-site') {
+        return res.status(403).json({ error: 'Origen no permitido' });
+    }
+    return next();
+});
+
+// --- MIDDLEWARES DE AUTORIZACIÓN ---
+const requireAuth = (req, res, next) => {
+    if (!req.session || !req.session.user) return res.status(401).json({ error: 'No autenticado' });
+    next();
+};
+
+const requireAdmin = (req, res, next) => {
+    if (!req.session || !req.session.user) return res.status(401).json({ error: 'No autenticado' });
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+    next();
+};
+
+const isAdminSession = (req) => Boolean(req.session && req.session.user && req.session.user.role === 'admin');
 
 // --- CONEXIÓN A POSTGRESQL ---
 // Render y Neon requieren SSL para conexiones externas
@@ -102,7 +154,7 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', requireAdmin, async (req, res) => {
     const { name, category, description, price, stock, img } = req.body;
     try {
         const result = await pool.query(
@@ -115,7 +167,7 @@ app.post('/api/products', async (req, res) => {
     }
 });
 
-app.put('/api/products/:id', async (req, res) => {
+app.put('/api/products/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { name, category, description, price, stock, img } = req.body;
     try {
@@ -129,7 +181,7 @@ app.put('/api/products/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/products/:id', async (req, res) => {
+app.delete('/api/products/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM products WHERE id = $1', [id]);
@@ -140,7 +192,7 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 // --- API: TRANSACCIONES ---
-app.post('/api/transactions', async (req, res) => {
+app.post('/api/transactions', requireAdmin, async (req, res) => {
     const { type, category, amount, date, description } = req.body;
     try {
         const result = await pool.query(
@@ -153,7 +205,7 @@ app.post('/api/transactions', async (req, res) => {
     }
 });
 
-app.get('/api/transactions', async (req, res) => {
+app.get('/api/transactions', requireAdmin, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM transactions ORDER BY date DESC, created_at DESC');
         res.json(result.rows);
@@ -162,7 +214,7 @@ app.get('/api/transactions', async (req, res) => {
     }
 });
 
-app.get('/api/transactions/:month', async (req, res) => {
+app.get('/api/transactions/:month', requireAdmin, async (req, res) => {
     const { month } = req.params;
     try {
         const result = await pool.query('SELECT * FROM transactions WHERE date LIKE $1 ORDER BY date DESC', [`${month}%`]);
@@ -172,7 +224,7 @@ app.get('/api/transactions/:month', async (req, res) => {
     }
 });
 
-app.delete('/api/transactions/:id', async (req, res) => {
+app.delete('/api/transactions/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM transactions WHERE id = $1', [id]);
@@ -187,11 +239,24 @@ app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const result = await pool.query('SELECT id, name, email, role FROM users WHERE email=$1 AND password=$2', [email, password]);
-        if (result.rows[0]) res.json(result.rows[0]);
-        else res.status(401).json({ error: 'Credenciales inválidas' });
+        if (result.rows[0]) {
+            req.session.user = result.rows[0];
+            res.json(result.rows[0]);
+        } else res.status(401).json({ error: 'Credenciales inválidas' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// Devuelve el usuario de la sesión actual (401 si no hay sesión)
+app.get('/api/me', requireAuth, (req, res) => {
+    res.json(req.session.user);
+});
+
+// Cierra la sesión y borra la cookie
+app.post('/api/logout', (req, res) => {
+    req.session = null;
+    res.json({ success: true });
 });
 
 app.post('/api/register', async (req, res) => {
@@ -204,13 +269,14 @@ app.post('/api/register', async (req, res) => {
             'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email, role',
             [name, email, password]
         );
+        req.session.user = result.rows[0];
         res.status(201).json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.get('/api/users/count', async (req, res) => {
+app.get('/api/users/count', requireAdmin, async (req, res) => {
     try {
         const result = await pool.query('SELECT COUNT(*) as count FROM users');
         res.json({ count: result.rows[0].count });
@@ -220,7 +286,13 @@ app.get('/api/users/count', async (req, res) => {
 });
 
 // --- API: SETTINGS ---
-app.get('/api/settings/:key', async (req, res) => {
+// Las claves social_* son públicas (las usa la portada); el resto requiere admin.
+const publicSettingKey = (key) => String(key).startsWith('social_');
+
+app.get('/api/settings/:key', (req, res, next) => {
+    if (publicSettingKey(req.params.key)) return next();
+    return requireAdmin(req, res, next);
+}, async (req, res) => {
     try {
         const result = await pool.query('SELECT value FROM settings WHERE key=$1', [req.params.key]);
         res.json({ value: result.rows[0] ? result.rows[0].value : null });
@@ -229,7 +301,7 @@ app.get('/api/settings/:key', async (req, res) => {
     }
 });
 
-app.post('/api/settings', async (req, res) => {
+app.post('/api/settings', requireAdmin, async (req, res) => {
     const { key, value } = req.body;
     try {
         await pool.query(
@@ -240,6 +312,13 @@ app.post('/api/settings', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// --- PANEL ADMIN: guardia del lado del servidor ---
+// Sin sesión de admin no se sirve la página (no depende de localStorage ni de JS)
+app.get(['/admin.html', '/admin'], (req, res) => {
+    if (!isAdminSession(req)) return res.redirect(302, '/login.html?next=admin.html');
+    res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 // --- Fallback: static & SPA ---
