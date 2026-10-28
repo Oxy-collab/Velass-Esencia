@@ -134,13 +134,22 @@ const initDb = async () => {
             value TEXT
         )`);
 
-        // Seed admin si no hay usuarios
+        // Seed admin SOLO si se configuró ADMIN_EMAIL/ADMIN_PASSWORD.
+        // Nunca se crean credenciales por defecto en el código.
         const userCount = await pool.query('SELECT COUNT(*) as count FROM users');
         if (parseInt(userCount.rows[0].count) === 0) {
-            await pool.query("INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)", [
-                'Stephanie', 'Step.cam.gam97@gmail.com', 'admin', 'admin'
-            ]);
-            console.log('👤 Usuario admin creado');
+            if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+                if (String(process.env.ADMIN_PASSWORD).length < 8) {
+                    console.warn('⚠️  ADMIN_PASSWORD debe tener al menos 8 caracteres: no se creó el admin.');
+                } else {
+                    await pool.query("INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)", [
+                        'Admin', process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD, 'admin'
+                    ]);
+                    console.log('👤 Usuario admin creado desde ADMIN_EMAIL/ADMIN_PASSWORD');
+                }
+            } else {
+                console.warn('ℹ️  No hay usuarios: define ADMIN_EMAIL y ADMIN_PASSWORD (o ejecuta npm run create-admin) para crear el admin.');
+            }
         }
 
         // Seed productos si está vacío
@@ -308,6 +317,29 @@ app.post('/api/register', async (req, res) => {
         res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// Cambio de contraseña del propio usuario (requiere la contraseña actual).
+// Al cambiarla se incrementa session_version: se cierran todas sus sesiones.
+app.put('/api/users/me/password', requireAuth, async (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Faltan la contraseña actual y la nueva' });
+    }
+    if (String(newPassword).length < 8) {
+        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    }
+    try {
+        const check = await pool.query('SELECT id FROM users WHERE id=$1 AND password=$2', [req.sessionUser.id, currentPassword]);
+        if (!check.rows[0]) return res.status(403).json({ error: 'La contraseña actual no es correcta' });
+
+        await pool.query('UPDATE users SET password=$1, session_version=session_version+1 WHERE id=$2', [newPassword, req.sessionUser.id]);
+        req.session = null;
+        res.json({ success: true, message: 'Contraseña actualizada. Inicia sesión de nuevo.' });
+    } catch (err) {
+        console.error('Error cambiando la contraseña:', err);
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 

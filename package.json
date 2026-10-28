@@ -4,7 +4,8 @@
   "description": "Velass&Esencia - Catálogo de velas artesanales",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "cookie-session": "^2.1.1",
