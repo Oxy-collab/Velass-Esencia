@@ -52,20 +52,21 @@ curl -X PUT https://<tu-dominio>/api/users/me/password \
 - Contraseñas con **bcrypt** (`bcryptjs`; `BCRYPT_ROUNDS` configurable, 10 por defecto). Las contraseñas antiguas en texto plano se migran a hash al arrancar el servidor (y al vuelo en el primer login).
 - **Validación de entrada con `zod`** en login, registro, productos, transacciones, settings y cambio de contraseña (longitudes, tipos, precios positivos, fechas `YYYY-MM-DD`). Los campos desconocidos se descartan.
 - **Rate limit** en `/api/login` (5 intentos fallidos / 15 min por IP; los logins correctos no cuentan) y `/api/register` (10 / 15 min). Configurable con `LOGIN_RATE_LIMIT_MAX`, `REGISTER_RATE_LIMIT_MAX` y `RATE_LIMIT_WINDOW_MS`; `DISABLE_RATE_LIMIT=1` solo para pruebas.
-- Los errores internos responden `{ "error": "Error interno" }` (sin filtrar `err.message`).
+- Los errores internos responden `{ "error": "Error interno" }` (sin filtrar `err.message`); los JSON malformados o demasiado grandes devuelven 400/413 en JSON.
 - Sesión con cookie firmada `httpOnly`/`SameSite=Lax`; 8 h; `Secure` en producción.
 - `requireAdmin` en productos, transacciones, usuarios y settings.
 - `/admin.html` se sirve solo con sesión de admin (`private/admin.html`, fuera del estático).
-- Bloqueo de `/.git`, `node_modules`, `server.js`, `package.json` y similares en el estático.
-- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): CSP/XSS, mover estáticos a `public/`, CSRF token, money como `NUMERIC`.
+- **Estáticos solo desde `public/`**: el resto del repo no se sirve (`server.js`, `package.json`, `lib/`, `private/`, `.git` → 404).
+- **CSP con `helmet`** (sin `unsafe-inline` en scripts), `nosniff`, `Referrer-Policy`, `frame-ancestors 'self'`, `object-src 'none'`. CORS cerrado por defecto; ampliable con `ALLOWED_ORIGINS`.
+- **Frontend sin XSS**: los datos de la BD se pintan con `textContent`/`escapeHtml`, las URLs de imagen se validan (`http`/`https`) y no hay manejadores inline (compatible con la CSP).
+- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): CSRF token con doble envío, money como `NUMERIC`, inventario de materias primas en BD.
 
 ## Estructura
 
 ```
-server.js            API + servido de estáticos
+server.js            API + estáticos desde public/
+public/              index.html, login.html, css/, js/ (único directorio servido)
 private/admin.html   panel (solo con sesión admin)
-index.html           catálogo
-login.html           acceso
-css/ js/             estilos y lógica de cliente
+lib/                 passwords.js (bcrypt) y validation.js (zod)
 scripts/create-admin.js
 ```

@@ -11,7 +11,7 @@ const Toast = {
         const icons = { success: '✅', error: '❌', info: 'ℹ️' };
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = `<span class="toast-icon">${icons[type] || '✅'}</span><span>${message}</span>`;
+        toast.innerHTML = `<span class="toast-icon">${icons[type] || '✅'}</span><span>${escapeHtml(message)}</span>`;
         container.appendChild(toast);
         setTimeout(() => {
             toast.classList.add('hide');
@@ -138,21 +138,29 @@ const FinanceSystem = {
             return;
         }
         container.innerHTML = this.transactions.map(t => `
-            <div class="transaction-item ${t.type}">
+            <div class="transaction-item ${t.type === 'egreso' ? 'egreso' : 'ingreso'}">
                 <div class="trans-left">
                     <div class="trans-icon">${t.type === 'ingreso' ? '💰' : '💸'}</div>
                     <div class="trans-details">
-                        <div class="trans-category">${t.category}</div>
-                        <div class="trans-desc">${t.description || 'Sin descripción'}</div>
-                        <div class="trans-date">${new Date(t.date + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                        <div class="trans-category">${escapeHtml(t.category)}</div>
+                        <div class="trans-desc">${escapeHtml(t.description || 'Sin descripción')}</div>
+                        <div class="trans-date">${escapeHtml(new Date(t.date + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' }))}</div>
                     </div>
                 </div>
                 <div class="trans-right">
-                    <div class="trans-amount ${t.type}">${t.type === 'ingreso' ? '+' : '-'}$${parseFloat(t.amount).toLocaleString('es-CO')}</div>
-                    <button class="btn-delete-trans" title="Eliminar" onclick="FinanceSystem.deleteTransaction(${t.id}).then(() => { FinanceSystem.renderTransactions(); FinanceUI.updateDashboard(); })">🗑️</button>
+                    <div class="trans-amount ${t.type === 'ingreso' ? 'ingreso' : 'egreso'}">${t.type === 'ingreso' ? '+' : '-'}$${(parseFloat(t.amount) || 0).toLocaleString('es-CO')}</div>
+                    <button class="btn-delete-trans" data-delete-trans="${Number(t.id)}" title="Eliminar">🗑️</button>
                 </div>
             </div>
         `).join('');
+
+        container.querySelectorAll('[data-delete-trans]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                await FinanceSystem.deleteTransaction(Number(btn.dataset.deleteTrans));
+                FinanceSystem.renderTransactions();
+                FinanceUI.updateDashboard();
+            });
+        });
     }
 };
 
@@ -361,13 +369,20 @@ const AdminInventorySystem = {
             let badge = p.stock === 0 ? '❌ Agotado' : p.stock <= 5 ? '⚠️ Bajo Stock' : '✅ En Stock';
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>#${p.id}</td><td>${p.name}</td><td>${p.category}</td>
-                <td>${fmt.format(p.price)}</td><td>${p.stock}</td><td>${badge}</td>
+                <td>#${Number(p.id)}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.category || '')}</td>
+                <td>${fmt.format(Number(p.price) || 0)}</td><td>${Number(p.stock) || 0}</td><td>${badge}</td>
                 <td>
-                    <button class="action-btn edit-btn" onclick="AdminSystem.editProduct(${p.id})">Editar</button>
-                    <button class="action-btn del-btn" onclick="AdminSystem.deleteProduct(${p.id})">Eliminar</button>
+                    <button class="action-btn edit-btn" data-edit-product="${Number(p.id)}">Editar</button>
+                    <button class="action-btn del-btn" data-delete-product="${Number(p.id)}">Eliminar</button>
                 </td>`;
             tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('[data-edit-product]').forEach((btn) => {
+            btn.addEventListener('click', () => AdminSystem.editProduct(Number(btn.dataset.editProduct)));
+        });
+        tbody.querySelectorAll('[data-delete-product]').forEach((btn) => {
+            btn.addEventListener('click', () => AdminSystem.deleteProduct(Number(btn.dataset.deleteProduct)));
         });
         await this.updateStats();
     },
@@ -512,9 +527,14 @@ const SocialMediaAdmin = {
         const container = document.getElementById(`${platform}-preview-mini`);
         if (!container) return;
         const label = platform === 'tiktok' ? '🎵 TikTok' : '📸 Instagram';
+        const safeUrl = safeHttpUrl(url);
+        if (!safeUrl) {
+            container.innerHTML = '<p style="color:#e91e63;font-size:0.85rem;">URL inválida (debe empezar por http:// o https://)</p>';
+            return;
+        }
         container.innerHTML = `
-            <p style="color:#4CAF50;font-weight:600;">✅ ${label} configurado</p>
-            <a href="${url}" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;color:var(--primary-color);word-break:break-all;">${url.substring(0, 60)}${url.length > 60 ? '…' : ''}</a>
+            <p style="color:#4CAF50;font-weight:600;">✅ ${escapeHtml(label)} configurado</p>
+            <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;color:var(--primary-color);word-break:break-all;">${escapeHtml(safeUrl.substring(0, 60))}${safeUrl.length > 60 ? '…' : ''}</a>
         `;
     }
 };
@@ -594,7 +614,7 @@ const RawMaterialsSystem = {
             alertsEl.innerHTML = lowStock.length > 0
                 ? `<div class="materials-alert-box">
                     ⚠️ <strong>${lowStock.length} material(es) con stock bajo o agotado:</strong>
-                    ${lowStock.map(m => `<span class="mat-alert-badge">${this.CAT_ICONS[m.category] || '🔧'} ${m.name} (${m.qty} ${m.unit})</span>`).join('')}
+                    ${lowStock.map(m => `<span class="mat-alert-badge">${this.CAT_ICONS[m.category] || '🔧'} ${escapeHtml(m.name)} (${escapeHtml(m.qty)} ${escapeHtml(m.unit)})</span>`).join('')}
                    </div>`
                 : '';
         }
@@ -606,7 +626,7 @@ const RawMaterialsSystem = {
                 ${cats.map(cat => {
                     const items = materials.filter(m => m.category === cat);
                     return `<div class="mat-summary-chip">
-                        <span>${this.CAT_ICONS[cat] || '🔧'} ${cat}</span>
+                        <span>${this.CAT_ICONS[cat] || '🔧'} ${escapeHtml(cat)}</span>
                         <strong>${items.length}</strong>
                     </div>`;
                 }).join('')}
@@ -624,19 +644,26 @@ const RawMaterialsSystem = {
             const status = this.getStatus(parseFloat(m.qty), parseFloat(m.minQty));
             const icon = this.CAT_ICONS[m.category] || '🔧';
             return `<tr>
-                <td><strong>${icon} ${m.name}</strong></td>
-                <td>${m.category}</td>
-                <td class="mat-qty ${status.cls === 'bajo' || status.cls === 'agotado' ? 'qty-low' : ''}">${m.qty}</td>
-                <td>${m.unit}</td>
-                <td>${m.minQty || '—'}</td>
-                <td><span class="mat-status ${status.cls}">${status.label}</span></td>
-                <td style="font-size:0.85rem;color:#999;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${m.notes || '—'}</td>
+                <td><strong>${icon} ${escapeHtml(m.name)}</strong></td>
+                <td>${escapeHtml(m.category)}</td>
+                <td class="mat-qty ${status.cls === 'bajo' || status.cls === 'agotado' ? 'qty-low' : ''}">${escapeHtml(m.qty)}</td>
+                <td>${escapeHtml(m.unit)}</td>
+                <td>${escapeHtml(m.minQty || '—')}</td>
+                <td><span class="mat-status ${status.cls}">${escapeHtml(status.label)}</span></td>
+                <td style="font-size:0.85rem;color:#999;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(m.notes || '—')}</td>
                 <td>
-                    <button class="action-btn edit-btn" onclick="RawMaterialsSystem.openEdit(${m.id})">Editar</button>
-                    <button class="action-btn del-btn" onclick="RawMaterialsSystem.confirmDelete(${m.id})">Eliminar</button>
+                    <button class="action-btn edit-btn" data-edit-mat="${Number(m.id)}">Editar</button>
+                    <button class="action-btn del-btn" data-del-mat="${Number(m.id)}">Eliminar</button>
                 </td>
             </tr>`;
         }).join('');
+
+        tbody.querySelectorAll('[data-edit-mat]').forEach((btn) => {
+            btn.addEventListener('click', () => RawMaterialsSystem.openEdit(Number(btn.dataset.editMat)));
+        });
+        tbody.querySelectorAll('[data-del-mat]').forEach((btn) => {
+            btn.addEventListener('click', () => RawMaterialsSystem.confirmDelete(Number(btn.dataset.delMat)));
+        });
     },
 
     openAdd() {
