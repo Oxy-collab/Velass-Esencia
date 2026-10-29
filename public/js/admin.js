@@ -367,10 +367,12 @@ const AdminInventorySystem = {
         tbody.innerHTML = '';
         products.forEach(p => {
             let badge = p.stock === 0 ? '❌ Agotado' : p.stock <= 5 ? '⚠️ Bajo Stock' : '✅ En Stock';
+            const hasOffer = typeof Pricing !== 'undefined' && Pricing.hasDiscount(p);
+            const priceCell = `${fmt.format(Number(p.price) || 0)}${hasOffer ? `<br><small style="color:#e91e63;">Oferta: ${fmt.format(Pricing.effectivePrice(p))}</small>` : ''}`;
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>#${Number(p.id)}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.category || '')}</td>
-                <td>${fmt.format(Number(p.price) || 0)}</td><td>${Number(p.stock) || 0}</td><td>${badge}</td>
+                <td>${priceCell}</td><td>${Number(p.stock) || 0}</td><td>${badge}</td>
                 <td>
                     <button class="action-btn edit-btn" data-edit-product="${Number(p.id)}">Editar</button>
                     <button class="action-btn del-btn" data-delete-product="${Number(p.id)}">Eliminar</button>
@@ -410,6 +412,8 @@ const AdminSystemExtended = {
         if (document.getElementById('prod-category')) document.getElementById('prod-category').value = p.category;
         document.getElementById('prod-desc').value = p.description;
         document.getElementById('prod-price').value = p.price;
+        const discountInput = document.getElementById('prod-discount-price');
+        if (discountInput) discountInput.value = (p.discount_price === null || p.discount_price === undefined) ? '' : p.discount_price;
         document.getElementById('prod-stock').value = p.stock;
         document.getElementById('prod-img').value = p.img;
         document.getElementById('modal-title').textContent = 'Editar Producto';
@@ -418,13 +422,16 @@ const AdminSystemExtended = {
 
     async saveProduct() {
         const id = document.getElementById('prod-id').value;
+        const discountEl = document.getElementById('prod-discount-price');
+        const discountRaw = discountEl ? discountEl.value : '';
         const body = {
             name: document.getElementById('prod-name').value,
             category: document.getElementById('prod-category').value,
             description: document.getElementById('prod-desc').value,
             price: parseFloat(document.getElementById('prod-price').value),
             stock: parseInt(document.getElementById('prod-stock').value),
-            img: document.getElementById('prod-img').value || ''
+            img: document.getElementById('prod-img').value || '',
+            discount_price: discountRaw === '' ? null : parseFloat(discountRaw)
         };
         try {
             const url = id ? `${API_BASE}/api/products/${id}` : `${API_BASE}/api/products`;

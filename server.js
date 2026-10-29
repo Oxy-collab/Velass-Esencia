@@ -200,6 +200,9 @@ const initDb = async () => {
             img TEXT DEFAULT ''
         )`);
 
+        // Precio de oferta (NULL = sin descuento). Idempotente para bases ya creadas.
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_price REAL');
+
         await pool.query(`CREATE TABLE IF NOT EXISTS transactions (
             id SERIAL PRIMARY KEY,
             type TEXT NOT NULL,
@@ -271,11 +274,12 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', requireAdmin, validateBody(productSchema), async (req, res) => {
-    const { name, category, description, price, stock, img } = req.body;
+    const { name, category, description, price, stock, img, discount_price } = req.body;
+    const discountPrice = discount_price === undefined || discount_price === null || discount_price === 0 ? null : discount_price;
     try {
         const result = await pool.query(
-            'INSERT INTO products (name, category, description, price, stock, img) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '']
+            'INSERT INTO products (name, category, description, price, stock, img, discount_price) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -286,11 +290,12 @@ app.post('/api/products', requireAdmin, validateBody(productSchema), async (req,
 
 app.put('/api/products/:id', requireAdmin, validateParam('id', idSchema), validateBody(productSchema), async (req, res) => {
     const { id } = req.params;
-    const { name, category, description, price, stock, img } = req.body;
+    const { name, category, description, price, stock, img, discount_price } = req.body;
+    const discountPrice = discount_price === undefined || discount_price === null || discount_price === 0 ? null : discount_price;
     try {
         const result = await pool.query(
-            'UPDATE products SET name=$1, category=$2, description=$3, price=$4, stock=$5, img=$6 WHERE id=$7 RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '', id]
+            'UPDATE products SET name=$1, category=$2, description=$3, price=$4, stock=$5, img=$6, discount_price=$7 WHERE id=$8 RETURNING *',
+            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, id]
         );
         res.json(result.rows[0]);
     } catch (err) {
