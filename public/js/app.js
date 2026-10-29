@@ -20,6 +20,25 @@ window.fetch = async (...args) => {
     return res;
 };
 
+// --- Utilidades para insertar datos de la BD sin romper el HTML (anti-XSS) ---
+function escapeHtml(value) {
+    return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function safeHttpUrl(value) {
+    const url = String(value === null || value === undefined ? '' : value).trim();
+    return /^https?:\/\//i.test(url) ? url : '';
+}
+
+function safeImageUrl(value) {
+    return safeHttpUrl(value) || 'https://placehold.co/400x300?text=Imagen+Pendiente';
+}
+
 // Normalize categories (map variants to canonical labels)
 function normalizeCategory(cat) {
     if (!cat) return 'Línea Bloom';
@@ -178,7 +197,7 @@ const CatalogSystem = {
             items.forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
-                const imgUrl = p.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente';
+                const imgUrl = safeImageUrl(p.img);
                 
                 let originalPrice = p.price;
                 let displayPrice = formatter.format(p.price);
@@ -191,10 +210,10 @@ const CatalogSystem = {
                 }
 
                 card.innerHTML = `
-            <div class="product-img" style="background-image: url('${imgUrl}'); position:relative;">${discountBadge}</div>
+            <div class="product-img" style="background-image: url('${escapeHtml(imgUrl)}'); position:relative;">${discountBadge}</div>
             <div class="product-info">
-            <h3 class="product-title">${p.name}</h3>
-            <p class="product-desc">${p.description}</p>
+            <h3 class="product-title">${escapeHtml(p.name)}</h3>
+            <p class="product-desc">${escapeHtml(p.description || '')}</p>
             <div class="product-footer">
             <span class="product-price">${displayPrice}</span>
             </div>
@@ -577,12 +596,13 @@ const SocialFeedSystem = {
     renderTikTok(url) {
         const wrapper = document.getElementById('tiktok-embed-wrapper');
         if (!wrapper) return;
-        const videoId = this.extractTikTokId(url);
+        const safeUrl = safeHttpUrl(url);
+        const videoId = safeUrl ? this.extractTikTokId(safeUrl) : null;
         if (!videoId) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Video no disponible (Asegúrate de copiar el enlace largo que contiene "/video/...")</p>'; return; }
         wrapper.innerHTML = `
             <blockquote class="tiktok-embed"
-                cite="${url}"
-                data-video-id="${videoId}"
+                cite="${escapeHtml(safeUrl)}"
+                data-video-id="${escapeHtml(videoId)}"
                 style="max-width:605px;min-width:325px;width:100%;">
                 <section>
                     <a target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/@velass.esencia">@velass.esencia</a>
@@ -602,9 +622,10 @@ const SocialFeedSystem = {
     renderInstagram(url) {
         const wrapper = document.getElementById('instagram-embed-wrapper');
         if (!wrapper) return;
-        const code = this.extractInstagramShortcode(url);
+        const safeUrl = safeHttpUrl(url);
+        const code = safeUrl ? this.extractInstagramShortcode(safeUrl) : null;
         if (!code) { wrapper.innerHTML = '<p style="padding:2rem;color:#999;text-align:center;">Post no disponible</p>'; return; }
-        const cleanUrl = `https://www.instagram.com/reel/${code}/`;
+        const cleanUrl = `https://www.instagram.com/reel/${escapeHtml(code)}/`;
         wrapper.innerHTML = `
             <blockquote class="instagram-media"
                 data-instgrm-permalink="${cleanUrl}"
@@ -641,23 +662,65 @@ function openProductDetail(product) {
     const modal = document.getElementById('product-detail-modal');
     const content = document.getElementById('product-detail-inner');
     if (!modal || !content) return;
-    
-    let originalPrice = product.price;
-    let displayPrice = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(product.price);
-    
-    if (product.category === 'Día de la madre') {
-        const discountedPrice = originalPrice * 0.9; // 10% off
-        displayPrice = `<span style="text-decoration:line-through;color:#999;font-size:0.85em;margin-right:5px;">${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(originalPrice)}</span> <span style="color:#e91e63;font-weight:bold;">${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(discountedPrice)}</span> <span style="color:#e91e63;font-size:0.85em;font-weight:bold;margin-left:5px;">(-10% OFF)</span>`;
-    }
 
-    content.innerHTML = `
-        <img src="${product.img || 'https://via.placeholder.com/400x300?text=Imagen+Pendiente'}" alt="${product.name}">
-        <h2>${product.name}</h2>
-        <p><strong>Categoría:</strong> ${product.category}</p>
-        <p><strong>Descripción:</strong> ${product.description}</p>
-        <p><strong>Precio:</strong> ${displayPrice}</p>
-        <button class="btn primary-btn" onclick="CatalogSystem.buyProduct('${product.name.replace(/'/g,'\\\\\'')}')">Pedir por WhatsApp/IG</button>
-    `;
+    const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+    const isMotherDay = normalizeCategory(product.category) === 'Día de la madre';
+    const price = Number(product.price) || 0;
+
+    content.textContent = '';
+
+    const img = document.createElement('img');
+    img.src = safeImageUrl(product.img);
+    img.alt = String(product.name || 'Vela');
+    img.loading = 'lazy';
+    content.appendChild(img);
+
+    const title = document.createElement('h2');
+    title.textContent = String(product.name || '');
+    content.appendChild(title);
+
+    const addRow = (label, value) => {
+        const row = document.createElement('p');
+        const strong = document.createElement('strong');
+        strong.textContent = label;
+        row.appendChild(strong);
+        row.appendChild(document.createTextNode(' ' + value));
+        content.appendChild(row);
+    };
+    addRow('Categoría:', String(product.category || ''));
+    addRow('Descripción:', String(product.description || ''));
+
+    const priceRow = document.createElement('p');
+    const priceLabel = document.createElement('strong');
+    priceLabel.textContent = 'Precio:';
+    priceRow.appendChild(priceLabel);
+    priceRow.appendChild(document.createTextNode(' '));
+    if (isMotherDay) {
+        const original = document.createElement('span');
+        original.style.textDecoration = 'line-through';
+        original.style.color = '#999';
+        original.style.fontSize = '0.85em';
+        original.style.marginRight = '5px';
+        original.textContent = fmt.format(price);
+
+        const discounted = document.createElement('span');
+        discounted.style.color = '#e91e63';
+        discounted.style.fontWeight = 'bold';
+        discounted.textContent = fmt.format(price * 0.9);
+
+        priceRow.appendChild(original);
+        priceRow.appendChild(discounted);
+    } else {
+        priceRow.appendChild(document.createTextNode(fmt.format(price)));
+    }
+    content.appendChild(priceRow);
+
+    const button = document.createElement('button');
+    button.className = 'btn primary-btn';
+    button.textContent = 'Pedir por WhatsApp/IG';
+    button.addEventListener('click', () => CatalogSystem.buyProduct(String(product.name || '')));
+    content.appendChild(button);
+
     modal.classList.add('active');
 }
 
