@@ -458,12 +458,14 @@ AdminSystem.deleteProduct = AdminSystemExtended.deleteProduct;
 const SocialMediaAdmin = {
     DEFAULTS: {
         tiktok: 'https://www.tiktok.com/@velass.esencia/video/7632349492309789972',
-        instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/'
+        instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/',
+        whatsapp: WhatsApp.DEFAULT_NUMBER
     },
 
     async load() {
         let tiktok = this.DEFAULTS.tiktok;
         let instagram = this.DEFAULTS.instagram;
+        let whatsapp = this.DEFAULTS.whatsapp;
         try {
             const tikRes = await fetch(`${API_BASE}/api/settings/social_tiktok`);
             if (tikRes.ok) {
@@ -475,8 +477,14 @@ const SocialMediaAdmin = {
                 const data = await igRes.json();
                 if (data.value) instagram = data.value;
             }
+            const waRes = await fetch(`${API_BASE}/api/settings/whatsapp_number`);
+            if (waRes.ok) {
+                const data = await waRes.json();
+                const normalized = WhatsApp.normalizeWhatsAppNumber(data.value);
+                if (normalized) whatsapp = normalized;
+            }
         } catch (e) {}
-        return { tiktok, instagram };
+        return { tiktok, instagram, whatsapp };
     },
 
     async save(platform, url) {
@@ -489,15 +497,45 @@ const SocialMediaAdmin = {
         } catch (e) {}
     },
 
+    async saveWhatsApp(number) {
+        try {
+            const res = await fetch(`${API_BASE}/api/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'whatsapp_number', value: number })
+            });
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    renderWhatsAppPreview(number) {
+        const container = document.getElementById('whatsapp-preview-mini');
+        if (!container) return;
+        const normalized = WhatsApp.normalizeWhatsAppNumber(number);
+        if (!normalized) {
+            container.innerHTML = '<p style="color:#e91e63;font-size:0.85rem;">Número inválido</p>';
+            return;
+        }
+        container.innerHTML = `
+            <p style="color:#4CAF50;font-weight:600;">✅ Pedidos a +${escapeHtml(normalized)}</p>
+            <a href="https://wa.me/${escapeHtml(normalized)}" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;color:var(--primary-color);">Probar enlace de WhatsApp</a>
+        `;
+    },
+
     async init() {
         const config = await this.load();
         const tikInput = document.getElementById('tiktok-url');
         const igInput = document.getElementById('instagram-url');
+        const waInput = document.getElementById('whatsapp-number');
         if (tikInput) tikInput.value = config.tiktok;
         if (igInput) igInput.value = config.instagram;
+        if (waInput) waInput.value = config.whatsapp;
 
         const btnTiktok = document.getElementById('btn-save-tiktok');
         const btnInstagram = document.getElementById('btn-save-instagram');
+        const btnWhatsapp = document.getElementById('btn-save-whatsapp');
 
         if (btnTiktok) {
             btnTiktok.addEventListener('click', async () => {
@@ -518,9 +556,28 @@ const SocialMediaAdmin = {
             });
         }
 
+        if (btnWhatsapp) {
+            btnWhatsapp.addEventListener('click', async () => {
+                const normalized = WhatsApp.normalizeWhatsAppNumber(waInput.value);
+                if (!normalized) {
+                    Toast.show('Número inválido: usa código de país y entre 10 y 15 dígitos', 'error');
+                    return;
+                }
+                const saved = await this.saveWhatsApp(normalized);
+                if (!saved) {
+                    Toast.show('No se pudo guardar el número de WhatsApp', 'error');
+                    return;
+                }
+                waInput.value = normalized;
+                Toast.show('Número de WhatsApp guardado: los pedidos llegarán a ese número.', 'success');
+                this.renderWhatsAppPreview(normalized);
+            });
+        }
+
         // Show current previews
         this.renderPreview('tiktok', config.tiktok);
         this.renderPreview('instagram', config.instagram);
+        this.renderWhatsAppPreview(config.whatsapp);
     },
 
     renderPreview(platform, url) {

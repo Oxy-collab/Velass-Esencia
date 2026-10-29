@@ -16,8 +16,14 @@ Catálogo y panel de administración de velas artesanales. Node.js + Express + P
 | `PORT` | no | Puerto HTTP (Render lo inyecta) |
 | `ADMIN_EMAIL` | no | Email del admin inicial. Solo se usa si la tabla `users` está vacía |
 | `ADMIN_PASSWORD` | no | Contraseña del admin inicial (mínimo 8 caracteres) |
+| `WHATSAPP_NUMBER` | no | Número por defecto para pedidos (con código de país, sin `+`). Se puede cambiar desde el panel; si la BD no tiene `whatsapp_number`, se usa este valor (`573005798487` por defecto) |
+| `ALLOWED_ORIGINS` | no | Lista separada por comas de orígenes CORS permitidos. Por defecto CORS está cerrado (mismo origen) |
 
 No existen credenciales por defecto en el código.
+
+## Pedidos por WhatsApp
+
+Los botones "Pedir por WhatsApp" del catálogo, el formulario de vela personalizada y el botón flotante abren `wa.me` con el mensaje ya redactado (producto, categoría, precio y dirección de envío). El número se configura desde **Panel → Redes Sociales → WhatsApp** y se guarda como setting `whatsapp_number` en la BD; `WHATSAPP_NUMBER` solo actúa como valor inicial.
 
 ## Desarrollo local
 
