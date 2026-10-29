@@ -2654,3 +2654,93 @@ body {
         font-size: 1.6rem;
     }
 }
+
+/* =================== FICHA DE PRODUCTO: SPECS Y OPINIONES =================== */
+.product-page-specs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.8rem;
+    margin: 1rem 0 1.2rem;
+    padding: 0;
+}
+
+.product-page-specs div {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 0.6rem 0.8rem;
+}
+
+.product-page-specs dt {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary-color);
+    margin-bottom: 0.2rem;
+}
+
+.product-page-specs dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+.product-page-care,
+.product-page-reviews {
+    max-width: 1000px;
+    margin: 0 auto 2.5rem;
+    padding: 0 5%;
+}
+
+.product-page-care h2,
+.product-page-reviews h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.6rem;
+}
+
+.product-page-care p {
+    line-height: 1.7;
+}
+
+.product-page-rating {
+    color: #f5a623;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.product-page-reviews ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 0.8rem;
+}
+
+.product-page-reviews li {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+}
+
+.review-author {
+    margin-bottom: 0.3rem;
+}
+
+.review-stars {
+    color: #f5a623;
+    margin-left: 0.3rem;
+}
+
+.admin-reviews-list {
+    margin: 0.5rem 0 1rem;
+    display: grid;
+    gap: 0.4rem;
+}
+
+.admin-review-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    background: var(--input-bg);
+    border-radius: 8px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+}

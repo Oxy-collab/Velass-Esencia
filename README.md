@@ -58,6 +58,12 @@ curl -X PUT https://<tu-dominio>/api/users/me/password \
   -d '{"currentPassword":"la-actual","newPassword":"la-nueva-de-8+"}'
 ```
 
+## Ficha de producto y reseñas
+
+Cada producto admite datos que ayudan a decidir la compra: **peso (g), duración (h), cera, mecha, notas olfativas y cuidados**, editables en **Panel → Inventario → Editar producto**. Se muestran en `/producto/<slug>` y se publican como `additionalProperty` en el JSON-LD.
+
+Las **reseñas** (autor, valoración 1–5 y comentario) se gestionan desde el mismo modal del producto (listar, añadir, eliminar). Si hay reseñas, la ficha muestra "Opiniones" y el JSON-LD incluye `aggregateRating` y `review`; al borrar un producto se borran sus reseñas.
+
 ## SEO y páginas de producto
 
 - Cada producto tiene una URL propia y **renderizada en servidor**: `/producto/<slug>` (slug generado del nombre, único y estable si se renombra).

@@ -16,6 +16,7 @@ const {
     registerSchema,
     passwordChangeSchema,
     productSchema,
+    reviewSchema,
     transactionSchema,
     settingSchema,
     monthSchema,
@@ -210,6 +211,24 @@ const initDb = async () => {
         await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS slug TEXT');
         await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS products_slug_idx ON products(slug)');
 
+        // Ficha del producto: datos que ayudan a decidir (peso, duración, cera, mecha…)
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS weight_g INTEGER');
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS burn_hours INTEGER');
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS wax_type TEXT');
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS wick_type TEXT');
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS scent_notes TEXT');
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS care_instructions TEXT');
+
+        // Reseñas curadas de clientes (se gestionan desde el panel)
+        await pool.query(`CREATE TABLE IF NOT EXISTS product_reviews (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER NOT NULL,
+            author TEXT NOT NULL,
+            rating INTEGER NOT NULL,
+            comment TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+
         await pool.query(`CREATE TABLE IF NOT EXISTS transactions (
             id SERIAL PRIMARY KEY,
             type TEXT NOT NULL,
@@ -286,14 +305,25 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
+const PRODUCT_DETAIL_FIELDS = ['weight_g', 'burn_hours', 'wax_type', 'wick_type', 'scent_notes', 'care_instructions'];
+
+const productDetailValues = (body) => PRODUCT_DETAIL_FIELDS.map((field) => {
+    const value = body[field];
+    if (value === undefined || value === null || value === '') return null;
+    return value;
+});
+
 app.post('/api/products', requireAdmin, validateBody(productSchema), async (req, res) => {
     const { name, category, description, price, stock, img, discount_price } = req.body;
     const discountPrice = discount_price === undefined || discount_price === null || discount_price === 0 ? null : discount_price;
+    const details = productDetailValues(req.body);
     try {
         const slug = await ensureUniqueSlug(pool, name);
         const result = await pool.query(
-            'INSERT INTO products (name, category, description, price, stock, img, discount_price, slug) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, slug]
+            `INSERT INTO products (name, category, description, price, stock, img, discount_price, slug,
+                weight_g, burn_hours, wax_type, wick_type, scent_notes, care_instructions)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, slug, ...details]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -306,6 +336,7 @@ app.put('/api/products/:id', requireAdmin, validateParam('id', idSchema), valida
     const { id } = req.params;
     const { name, category, description, price, stock, img, discount_price } = req.body;
     const discountPrice = discount_price === undefined || discount_price === null || discount_price === 0 ? null : discount_price;
+    const details = productDetailValues(req.body);
     try {
         // El slug es estable para no romper enlaces ya compartidos; solo se genera si falta.
         const current = await pool.query('SELECT slug FROM products WHERE id=$1', [id]);
@@ -314,8 +345,11 @@ app.put('/api/products/:id', requireAdmin, validateParam('id', idSchema), valida
         if (!slug) slug = await ensureUniqueSlug(pool, name, id);
 
         const result = await pool.query(
-            'UPDATE products SET name=$1, category=$2, description=$3, price=$4, stock=$5, img=$6, discount_price=$7, slug=$8 WHERE id=$9 RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, slug, id]
+            `UPDATE products SET name=$1, category=$2, description=$3, price=$4, stock=$5, img=$6,
+                discount_price=$7, slug=$8, weight_g=$9, burn_hours=$10, wax_type=$11, wick_type=$12,
+                scent_notes=$13, care_instructions=$14
+             WHERE id=$15 RETURNING *`,
+            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, slug, ...details, id]
         );
         res.json(result.rows[0]);
     } catch (err) {
@@ -327,7 +361,48 @@ app.put('/api/products/:id', requireAdmin, validateParam('id', idSchema), valida
 app.delete('/api/products/:id', requireAdmin, validateParam('id', idSchema), async (req, res) => {
     const { id } = req.params;
     try {
+        await pool.query('DELETE FROM product_reviews WHERE product_id = $1', [id]);
         await pool.query('DELETE FROM products WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+// --- API: RESEÑAS (admin) ---
+app.get('/api/products/:id/reviews', requireAdmin, validateParam('id', idSchema), async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT id, author, rating, comment, created_at FROM product_reviews WHERE product_id=$1 ORDER BY created_at DESC',
+            [req.params.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+app.post('/api/products/:id/reviews', requireAdmin, validateParam('id', idSchema), validateBody(reviewSchema), async (req, res) => {
+    const { author, rating, comment } = req.body;
+    try {
+        const product = await pool.query('SELECT id FROM products WHERE id=$1', [req.params.id]);
+        if (!product.rows[0]) return res.status(404).json({ error: 'Producto no encontrado' });
+        const result = await pool.query(
+            'INSERT INTO product_reviews (product_id, author, rating, comment) VALUES ($1, $2, $3, $4) RETURNING id, author, rating, comment, created_at',
+            [req.params.id, author, rating, comment]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+app.delete('/api/reviews/:id', requireAdmin, validateParam('id', idSchema), async (req, res) => {
+    try {
+        await pool.query('DELETE FROM product_reviews WHERE id=$1', [req.params.id]);
         res.json({ success: true });
     } catch (err) {
         console.error(err);
@@ -583,7 +658,11 @@ app.get('/producto/:slug', async (req, res, next) => {
             return res.status(404).type('html').send(renderNotFound(publicBaseUrl(req)));
         }
         const whatsappNumber = await getWhatsAppNumber();
-        res.type('html').send(renderProductPage({ product, baseUrl: publicBaseUrl(req), whatsappNumber }));
+        const reviews = await pool.query(
+            'SELECT author, rating, comment, created_at FROM product_reviews WHERE product_id=$1 ORDER BY created_at DESC',
+            [product.id]
+        );
+        res.type('html').send(renderProductPage({ product, baseUrl: publicBaseUrl(req), whatsappNumber, reviews: reviews.rows }));
     } catch (err) {
         next(err);
     }
