@@ -352,10 +352,40 @@
                             <p>Vista previa aparecerá aquí después de guardar</p>
                         </div>
                     </div>
+
+                    <!-- Google Analytics 4 Card -->
+                    <div class="social-admin-card">
+                        <h3>📊 Google Analytics 4 (GA4)</h3>
+                        <div class="form-group">
+                            <label>ID de Medición (Measurement ID)</label>
+                            <input type="text" id="ga-measurement-id" class="form-control"
+                                placeholder="G-17KGKVB85Z">
+                            <small style="color:#999;">Formato G-XXXXXXXXXX. Deja vacío para pausar.</small>
+                        </div>
+                        <button class="btn primary-btn" id="btn-save-ga" style="width:100%;">Guardar GA4</button>
+                        <div class="social-preview-mini" id="ga-preview-mini">
+                            <p>Estado de GA4 aparecerá aquí</p>
+                        </div>
+                    </div>
+
+                    <!-- Meta Pixel Card -->
+                    <div class="social-admin-card">
+                        <h3>🎯 Meta Pixel (opcional)</h3>
+                        <div class="form-group">
+                            <label>ID del Pixel de Meta</label>
+                            <input type="text" id="meta-pixel-id" class="form-control"
+                                placeholder="Ej: 123456789012345">
+                            <small style="color:#999;">Solo dígitos. Deja vacío si no usas anuncios de Meta.</small>
+                        </div>
+                        <button class="btn primary-btn" id="btn-save-meta-pixel" style="width:100%;">Guardar Pixel</button>
+                        <div class="social-preview-mini" id="meta-pixel-preview-mini">
+                            <p>Estado del Pixel aparecerá aquí</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(142,68,173,0.07); border-radius: 12px; border-left: 4px solid var(--primary-color);">
-                    <strong>💡 Tip:</strong> Los cambios se reflejan automáticamente en la página del catálogo: las «Últimas Novedades» y el número al que llegan los pedidos por WhatsApp.
+                    <strong>💡 Tip:</strong> Los cambios se reflejan automáticamente en la web: enlaces sociales, pedidos de WhatsApp y la medición de visitas/eventos en Google Analytics 4.
                 </div>
             </section>
         </div>

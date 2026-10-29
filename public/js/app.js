@@ -129,6 +129,14 @@ const AppSystem = {
         } catch (err) {
             return { count: 0 };
         }
+    },
+
+    openWhatsApp(message) {
+        return CatalogSystem.openWhatsApp(message);
+    },
+
+    async initWhatsApp() {
+        return await CatalogSystem.initWhatsApp();
     }
 };
 
@@ -399,6 +407,16 @@ const CandleTestSystem = {
         document.getElementById('result-img').style.backgroundImage = `url('${result.img}')`;
         
         this.updateProgress();
+
+        try {
+            window.dispatchEvent(new CustomEvent('finish_test', {
+                detail: {
+                    resultKey: resultKey,
+                    resultTitle: result.title,
+                    answers: this.answers.slice()
+                }
+            }));
+        } catch (e) { /* sin analytics */ }
     },
 
     restart() {
@@ -737,10 +755,14 @@ const CartSystem = {
     add(product) {
         if (!product) return;
         const effective = CatalogSystem.effectivePrice(product);
-        this.items = Cart.addItem(this.items, Object.assign({}, product, { price: effective }));
+        const item = Object.assign({}, product, { price: effective });
+        this.items = Cart.addItem(this.items, item);
         this.persist();
         this.render();
         this.openPanel();
+        try {
+            window.dispatchEvent(new CustomEvent('add_to_cart', { detail: { product: item, qty: 1 } }));
+        } catch (e) { /* sin analytics */ }
     },
 
     changeQty(id, delta) {
@@ -959,5 +981,13 @@ function openProductDetail(product) {
     }
 
     modal.classList.add('active');
+
+    try {
+        window.dispatchEvent(new CustomEvent('view_item', {
+            detail: {
+                product: Object.assign({}, product, { price: Pricing.effectivePrice(product) })
+            }
+        }));
+    } catch (e) { /* sin analytics */ }
 }
 
