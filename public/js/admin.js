@@ -395,9 +395,22 @@ const AdminInventorySystem = {
         const btnCancel = document.getElementById('btn-cancel-modal');
         const form = document.getElementById('product-form');
         if (!btnAdd || !form) return;
-        btnAdd.addEventListener('click', () => { form.reset(); document.getElementById('prod-id').value = ''; document.getElementById('modal-title').textContent = 'Añadir Producto'; modal.classList.add('active'); });
+        btnAdd.addEventListener('click', () => {
+            form.reset();
+            document.getElementById('prod-id').value = '';
+            document.getElementById('modal-title').textContent = 'Añadir Producto';
+            if (AdminSystemExtended) AdminSystemExtended.loadReviews(null);
+            modal.classList.add('active');
+        });
         btnCancel.addEventListener('click', () => modal.classList.remove('active'));
         form.addEventListener('submit', (e) => { e.preventDefault(); AdminSystem.saveProduct(); });
+
+        const btnReview = document.getElementById('btn-add-review');
+        if (btnReview) {
+            btnReview.addEventListener('click', () => {
+                if (AdminSystemExtended) AdminSystemExtended.addReview();
+            });
+        }
     }
 };
 
@@ -416,14 +429,111 @@ const AdminSystemExtended = {
         if (discountInput) discountInput.value = (p.discount_price === null || p.discount_price === undefined) ? '' : p.discount_price;
         document.getElementById('prod-stock').value = p.stock;
         document.getElementById('prod-img').value = p.img;
+        const setValue = (fieldId, value) => {
+            const el = document.getElementById(fieldId);
+            if (el) el.value = (value === null || value === undefined) ? '' : value;
+        };
+        setValue('prod-weight', p.weight_g);
+        setValue('prod-burn-hours', p.burn_hours);
+        setValue('prod-wax-type', p.wax_type);
+        setValue('prod-wick-type', p.wick_type);
+        setValue('prod-scent-notes', p.scent_notes);
+        setValue('prod-care', p.care_instructions);
         document.getElementById('modal-title').textContent = 'Editar Producto';
         document.getElementById('product-modal').classList.add('active');
+        this.loadReviews(p.id);
+    },
+
+    async loadReviews(productId) {
+        const box = document.getElementById('product-reviews-admin');
+        const list = document.getElementById('admin-reviews-list');
+        if (!box || !list) return;
+        if (!productId) {
+            box.style.display = 'none';
+            list.textContent = '';
+            return;
+        }
+        box.style.display = 'block';
+        try {
+            const res = await fetch(`${API_BASE}/api/products/${productId}/reviews`);
+            const reviews = res.ok ? await res.json() : [];
+            list.textContent = '';
+            if (!Array.isArray(reviews) || reviews.length === 0) {
+                const empty = document.createElement('p');
+                empty.style.color = '#999';
+                empty.textContent = 'Aún no hay opiniones.';
+                list.appendChild(empty);
+                return;
+            }
+            reviews.forEach((review) => {
+                const row = document.createElement('div');
+                row.className = 'admin-review-row';
+                const info = document.createElement('span');
+                info.textContent = `${review.author} — ${'★'.repeat(Number(review.rating) || 0)} — ${review.comment}`;
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'btn text-btn';
+                del.textContent = 'Eliminar';
+                del.addEventListener('click', async () => {
+                    try { await fetch(`${API_BASE}/api/reviews/${review.id}`, { method: 'DELETE' }); } catch (e) { /* ignora */ }
+                    this.loadReviews(productId);
+                });
+                row.append(info, del);
+                list.appendChild(row);
+            });
+        } catch (e) {
+            console.error('Error cargando opiniones:', e);
+        }
+    },
+
+    async addReview() {
+        const productId = Number(document.getElementById('prod-id').value);
+        if (!productId) {
+            Toast.show('Guarda el producto antes de añadir opiniones', 'error');
+            return;
+        }
+        const author = document.getElementById('review-author').value.trim();
+        const rating = Number(document.getElementById('review-rating').value);
+        const comment = document.getElementById('review-comment').value.trim();
+        try {
+            const res = await fetch(`${API_BASE}/api/products/${productId}/reviews`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ author, rating, comment })
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                const detail = data.details && data.details[0] ? data.details[0].mensaje : null;
+                Toast.show(detail || data.error || 'Revisa los datos de la opinión', 'error');
+                return;
+            }
+            document.getElementById('review-author').value = '';
+            document.getElementById('review-comment').value = '';
+            Toast.show('Opinión añadida');
+            this.loadReviews(productId);
+        } catch (e) {
+            Toast.show('Error de conexión con el servidor', 'error');
+        }
     },
 
     async saveProduct() {
         const id = document.getElementById('prod-id').value;
         const discountEl = document.getElementById('prod-discount-price');
         const discountRaw = discountEl ? discountEl.value : '';
+        const valueOf = (fieldId) => {
+            const el = document.getElementById(fieldId);
+            return el ? el.value.trim() : '';
+        };
+        const numberOrNull = (fieldId) => {
+            const raw = valueOf(fieldId);
+            if (raw === '') return null;
+            const num = Number(raw);
+            return Number.isFinite(num) ? num : null;
+        };
+        const textOrNull = (fieldId) => {
+            const raw = valueOf(fieldId);
+            return raw === '' ? null : raw;
+        };
         const body = {
             name: document.getElementById('prod-name').value,
             category: document.getElementById('prod-category').value,
@@ -431,7 +541,13 @@ const AdminSystemExtended = {
             price: parseFloat(document.getElementById('prod-price').value),
             stock: parseInt(document.getElementById('prod-stock').value),
             img: document.getElementById('prod-img').value || '',
-            discount_price: discountRaw === '' ? null : parseFloat(discountRaw)
+            discount_price: discountRaw === '' ? null : parseFloat(discountRaw),
+            weight_g: numberOrNull('prod-weight'),
+            burn_hours: numberOrNull('prod-burn-hours'),
+            wax_type: textOrNull('prod-wax-type'),
+            wick_type: textOrNull('prod-wick-type'),
+            scent_notes: textOrNull('prod-scent-notes'),
+            care_instructions: textOrNull('prod-care')
         };
         try {
             const url = id ? `${API_BASE}/api/products/${id}` : `${API_BASE}/api/products`;
