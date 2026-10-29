@@ -18,6 +18,7 @@ Catálogo y panel de administración de velas artesanales. Node.js + Express + P
 | `ADMIN_PASSWORD` | no | Contraseña del admin inicial (mínimo 8 caracteres) |
 | `WHATSAPP_NUMBER` | no | Número por defecto para pedidos (con código de país, sin `+`). Se puede cambiar desde el panel; si la BD no tiene `whatsapp_number`, se usa este valor (`573005798487` por defecto) |
 | `ALLOWED_ORIGINS` | no | Lista separada por comas de orígenes CORS permitidos. Por defecto CORS está cerrado (mismo origen) |
+| `PUBLIC_URL` | no | URL pública base para canonical/OG/sitemap (p. ej. `https://velass-esencia.onrender.com`). Si falta se deduce de la petición |
 
 No existen credenciales por defecto en el código.
 
@@ -57,6 +58,15 @@ curl -X PUT https://<tu-dominio>/api/users/me/password \
   -d '{"currentPassword":"la-actual","newPassword":"la-nueva-de-8+"}'
 ```
 
+## SEO y páginas de producto
+
+- Cada producto tiene una URL propia y **renderizada en servidor**: `/producto/<slug>` (slug generado del nombre, único y estable si se renombra).
+- Incluye `<title>`, `meta description`, `canonical`, Open Graph/Twitter, `h1`, precio/oferta y **JSON-LD `Product` + `Offer`** (COP, disponibilidad).
+- `/sitemap.xml` (portada + productos) y `/robots.txt` (bloquea `/admin.html` y `/api/`).
+- La portada inyecta en servidor una lista de enlaces a las fichas de producto (navegación/crawl).
+- Rutas desconocidas devuelven **404 real** (antes se servía el index con 200).
+- El CTA de la ficha es un enlace `wa.me` generado en servidor: funciona sin JavaScript.
+
 ## Seguridad (estado actual)
 
 - Contraseñas con **bcrypt** (`bcryptjs`; `BCRYPT_ROUNDS` configurable, 10 por defecto). Las contraseñas antiguas en texto plano se migran a hash al arrancar el servidor (y al vuelo en el primer login).
@@ -77,6 +87,6 @@ curl -X PUT https://<tu-dominio>/api/users/me/password \
 server.js            API + estáticos desde public/
 public/              index.html, login.html, css/, js/ (único directorio servido)
 private/admin.html   panel (solo con sesión admin)
-lib/                 passwords.js (bcrypt) y validation.js (zod)
+lib/                 passwords.js (bcrypt), validation.js (zod), slug.js, product-page.js
 scripts/create-admin.js
 ```

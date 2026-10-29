@@ -950,6 +950,14 @@ function openProductDetail(product) {
     addToCartBtn.addEventListener('click', () => CartSystem.add(product));
     content.appendChild(addToCartBtn);
 
+    if (product.slug) {
+        const permalink = document.createElement('a');
+        permalink.className = 'btn text-btn';
+        permalink.href = '/producto/' + encodeURIComponent(product.slug);
+        permalink.textContent = 'Ver ficha completa';
+        content.appendChild(permalink);
+    }
+
     modal.classList.add('active');
 }
 

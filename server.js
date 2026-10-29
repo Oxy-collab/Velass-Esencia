@@ -3,11 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const cookieSession = require('cookie-session');
 const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg');
 const { hashPassword, verifyPassword, migrateLegacyPasswords } = require('./lib/passwords');
+const { ensureUniqueSlug, backfillSlugs } = require('./lib/slug');
+const { renderProductPage, renderNotFound, buildSitemap, buildRobots, escapeHtml } = require('./lib/product-page');
 const {
     loginSchema,
     registerSchema,
@@ -203,6 +206,10 @@ const initDb = async () => {
         // Precio de oferta (NULL = sin descuento). Idempotente para bases ya creadas.
         await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_price REAL');
 
+        // Slug para URLs públicas de producto (SEO)
+        await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS slug TEXT');
+        await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS products_slug_idx ON products(slug)');
+
         await pool.query(`CREATE TABLE IF NOT EXISTS transactions (
             id SERIAL PRIMARY KEY,
             type TEXT NOT NULL,
@@ -255,6 +262,12 @@ const initDb = async () => {
             }
             console.log('📦 Productos iniciales creados');
         }
+
+        // Slugs para productos que aún no tengan (bases existentes o seed recién creado)
+        const slugsBackfilled = await backfillSlugs(pool);
+        if (slugsBackfilled > 0) {
+            console.log(`🔗 ${slugsBackfilled} slug(s) de producto generados`);
+        }
     } catch (err) {
         console.error('❌ Error inicializando la base de datos:', err);
     }
@@ -277,9 +290,10 @@ app.post('/api/products', requireAdmin, validateBody(productSchema), async (req,
     const { name, category, description, price, stock, img, discount_price } = req.body;
     const discountPrice = discount_price === undefined || discount_price === null || discount_price === 0 ? null : discount_price;
     try {
+        const slug = await ensureUniqueSlug(pool, name);
         const result = await pool.query(
-            'INSERT INTO products (name, category, description, price, stock, img, discount_price) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice]
+            'INSERT INTO products (name, category, description, price, stock, img, discount_price, slug) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, slug]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -293,9 +307,15 @@ app.put('/api/products/:id', requireAdmin, validateParam('id', idSchema), valida
     const { name, category, description, price, stock, img, discount_price } = req.body;
     const discountPrice = discount_price === undefined || discount_price === null || discount_price === 0 ? null : discount_price;
     try {
+        // El slug es estable para no romper enlaces ya compartidos; solo se genera si falta.
+        const current = await pool.query('SELECT slug FROM products WHERE id=$1', [id]);
+        if (!current.rows[0]) return res.status(404).json({ error: 'Producto no encontrado' });
+        let slug = current.rows[0].slug;
+        if (!slug) slug = await ensureUniqueSlug(pool, name, id);
+
         const result = await pool.query(
-            'UPDATE products SET name=$1, category=$2, description=$3, price=$4, stock=$5, img=$6, discount_price=$7 WHERE id=$8 RETURNING *',
-            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, id]
+            'UPDATE products SET name=$1, category=$2, description=$3, price=$4, stock=$5, img=$6, discount_price=$7, slug=$8 WHERE id=$9 RETURNING *',
+            [name, category || 'línea Bloom', description, price, stock, img || '', discountPrice, slug, id]
         );
         res.json(result.rows[0]);
     } catch (err) {
@@ -527,6 +547,62 @@ app.post('/api/settings', requireAdmin, validateBody(settingSchema), async (req,
     }
 });
 
+// --- PÁGINAS PÚBLICAS SEO ---
+const publicBaseUrl = (req) => process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+
+const getWhatsAppNumber = async () => {
+    try {
+        const result = await pool.query("SELECT value FROM settings WHERE key='whatsapp_number'");
+        const stored = result.rows[0] && result.rows[0].value;
+        const digits = String(stored || process.env.WHATSAPP_NUMBER || '573005798487').replace(/\D/g, '');
+        return /^\d{10,15}$/.test(digits) ? digits : '573005798487';
+    } catch (err) {
+        return '573005798487';
+    }
+};
+
+app.get('/sitemap.xml', async (req, res, next) => {
+    try {
+        const result = await pool.query('SELECT slug FROM products WHERE slug IS NOT NULL ORDER BY id ASC');
+        res.type('application/xml').send(buildSitemap(result.rows, publicBaseUrl(req)));
+    } catch (err) {
+        next(err);
+    }
+});
+
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain').send(buildRobots(publicBaseUrl(req)));
+});
+
+// Página de producto renderizada en servidor (URL propia, meta y JSON-LD)
+app.get('/producto/:slug', async (req, res, next) => {
+    try {
+        const result = await pool.query('SELECT * FROM products WHERE slug=$1', [req.params.slug]);
+        const product = result.rows[0];
+        if (!product) {
+            return res.status(404).type('html').send(renderNotFound(publicBaseUrl(req)));
+        }
+        const whatsappNumber = await getWhatsAppNumber();
+        res.type('html').send(renderProductPage({ product, baseUrl: publicBaseUrl(req), whatsappNumber }));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Portada: inyecta enlaces de producto (crawlables) en el HTML estático
+app.get(['/', '/index.html'], async (req, res, next) => {
+    try {
+        const raw = await fs.promises.readFile(path.join(__dirname, 'public', 'index.html'), 'utf8');
+        const result = await pool.query('SELECT name, slug FROM products WHERE slug IS NOT NULL ORDER BY category ASC, name ASC');
+        const links = result.rows
+            .map((p) => `<li><a href="/producto/${encodeURIComponent(p.slug)}">${escapeHtml(p.name)}</a></li>`)
+            .join('');
+        res.type('html').send(raw.replace('<!--CATALOG_SEO-->', links));
+    } catch (err) {
+        next(err);
+    }
+});
+
 // --- PANEL ADMIN: guardia del lado del servidor ---
 // admin.html vive fuera del directorio estático para que no se pueda alcanzar
 // con variantes codificadas del path (%61dmin.html, //admin.html, etc.).
@@ -561,14 +637,15 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- Fallback: estáticos y SPA ---
+// --- Fallback: estáticos ---
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Las rutas /api que no existen responden JSON 404 (no el index.html)
 app.use('/api', (req, res) => res.status(404).json({ error: 'No encontrado' }));
 
+// Cualquier otra ruta desconocida es un 404 real (mejor para SEO que devolver 200)
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.status(404).type('html').send(renderNotFound(publicBaseUrl(req)));
 });
 
 // --- MANEJO DE ERRORES (JSON, sin filtrar detalles internos) ---
