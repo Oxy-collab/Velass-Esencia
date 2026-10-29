@@ -19,6 +19,8 @@ Catálogo y panel de administración de velas artesanales. Node.js + Express + P
 | `WHATSAPP_NUMBER` | no | Número por defecto para pedidos (con código de país, sin `+`). Se puede cambiar desde el panel; si la BD no tiene `whatsapp_number`, se usa este valor (`573005798487` por defecto) |
 | `ALLOWED_ORIGINS` | no | Lista separada por comas de orígenes CORS permitidos. Por defecto CORS está cerrado (mismo origen) |
 | `PUBLIC_URL` | no | URL pública base para canonical/OG/sitemap (p. ej. `https://velass-esencia.onrender.com`). Si falta se deduce de la petición |
+| `GA_MEASUREMENT_ID` | no | ID de medición de Google Analytics 4 (p. ej. `G-17KGKVB85Z`). Configurable también desde el panel |
+| `META_PIXEL_ID` | no | ID de Pixel de Meta opcional (solo dígitos). Configurable también desde el panel |
 
 No existen credenciales por defecto en el código.
 
@@ -72,6 +74,19 @@ Las **reseñas** (autor, valoración 1–5 y comentario) se gestionan desde el m
 - La portada inyecta en servidor una lista de enlaces a las fichas de producto (navegación/crawl).
 - Rutas desconocidas devuelven **404 real** (antes se servía el index con 200).
 - El CTA de la ficha es un enlace `wa.me` generado en servidor: funciona sin JavaScript.
+
+## Analítica y eventos (CV-6)
+
+- **Google Analytics 4 (GA4)** con ID `G-17KGKVB85Z`, configurable también vía variable de entorno `GA_MEASUREMENT_ID` o desde **Panel → Redes Sociales → Google Analytics 4**.
+- **Google Consent Mode v2**: banner de cookies transparente (Aceptar / Rechazar) que respeta la privacidad y permite revocar el consentimiento desde el enlace en el pie de página. Si se rechaza, las cookies quedan bloqueadas y no se envían identificadores.
+- **Eventos estándar y de conversión**:
+  - `view_item`: apertura del modal de producto o visualización de ficha en `/producto/<slug>`.
+  - `add_to_cart`: adición de un producto al carrito de compras.
+  - `order_intent`: clic en los botones de "Pedir por WhatsApp" (desde ficha, catálogo, carrito, vela personalizada o botón flotante).
+  - `finish_test`: finalización del test "Descubre tu vela ideal" con el resultado obtenido.
+- **DebugView**: se activa automáticamente en `localhost` o pasando el parámetro `?debug=1` en la URL.
+- **Meta Pixel**: soporte opcional configurable desde el panel o `META_PIXEL_ID`.
+- **CSP**: directivas actualizadas en `server.js` permitiendo dominios de Google Tag Manager, Google Analytics y Meta.
 
 ## Seguridad (estado actual)
 

@@ -577,18 +577,22 @@ AdminSystem.editProduct = AdminSystemExtended.editProduct;
 AdminSystem.saveProduct = AdminSystemExtended.saveProduct;
 AdminSystem.deleteProduct = AdminSystemExtended.deleteProduct;
 
-// =================== SOCIAL MEDIA ADMIN ===================
+// =================== SOCIAL MEDIA & ANALYTICS ADMIN ===================
 const SocialMediaAdmin = {
     DEFAULTS: {
         tiktok: 'https://www.tiktok.com/@velass.esencia/video/7632349492309789972',
         instagram: 'https://www.instagram.com/reel/DXhQc_8jeOh/',
-        whatsapp: WhatsApp.DEFAULT_NUMBER
+        whatsapp: WhatsApp.DEFAULT_NUMBER,
+        ga: 'G-17KGKVB85Z',
+        metaPixel: ''
     },
 
     async load() {
         let tiktok = this.DEFAULTS.tiktok;
         let instagram = this.DEFAULTS.instagram;
         let whatsapp = this.DEFAULTS.whatsapp;
+        let ga = this.DEFAULTS.ga;
+        let metaPixel = this.DEFAULTS.metaPixel;
         try {
             const tikRes = await fetch(`${API_BASE}/api/settings/social_tiktok`);
             if (tikRes.ok) {
@@ -606,8 +610,18 @@ const SocialMediaAdmin = {
                 const normalized = WhatsApp.normalizeWhatsAppNumber(data.value);
                 if (normalized) whatsapp = normalized;
             }
+            const gaRes = await fetch(`${API_BASE}/api/settings/ga_measurement_id`);
+            if (gaRes.ok) {
+                const data = await gaRes.json();
+                if (data.value !== null && data.value !== undefined) ga = data.value;
+            }
+            const metaRes = await fetch(`${API_BASE}/api/settings/meta_pixel_id`);
+            if (metaRes.ok) {
+                const data = await metaRes.json();
+                if (data.value !== null && data.value !== undefined) metaPixel = data.value;
+            }
         } catch (e) {}
-        return { tiktok, instagram, whatsapp };
+        return { tiktok, instagram, whatsapp, ga, metaPixel };
     },
 
     async save(platform, url) {
@@ -620,17 +634,21 @@ const SocialMediaAdmin = {
         } catch (e) {}
     },
 
-    async saveWhatsApp(number) {
+    async saveSetting(key, value) {
         try {
             const res = await fetch(`${API_BASE}/api/settings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: 'whatsapp_number', value: number })
+                body: JSON.stringify({ key, value })
             });
             return res.ok;
         } catch (e) {
             return false;
         }
+    },
+
+    async saveWhatsApp(number) {
+        return this.saveSetting('whatsapp_number', number);
     },
 
     renderWhatsAppPreview(number) {
@@ -647,18 +665,52 @@ const SocialMediaAdmin = {
         `;
     },
 
+    renderGAPreview(id) {
+        const container = document.getElementById('ga-preview-mini');
+        if (!container) return;
+        const trimmed = String(id || '').trim();
+        if (!trimmed) {
+            container.innerHTML = '<p style="color:#999;font-size:0.85rem;">⚠️ GA4 pausado (sin ID configurado)</p>';
+            return;
+        }
+        container.innerHTML = `
+            <p style="color:#4CAF50;font-weight:600;">✅ GA4 Activo: ${escapeHtml(trimmed)}</p>
+            <small style="color:#666;">Registrando view_item, add_to_cart, order_intent y finish_test con consentimiento</small>
+        `;
+    },
+
+    renderMetaPreview(id) {
+        const container = document.getElementById('meta-pixel-preview-mini');
+        if (!container) return;
+        const trimmed = String(id || '').trim();
+        if (!trimmed) {
+            container.innerHTML = '<p style="color:#999;font-size:0.85rem;">ℹ️ Meta Pixel desactivado (opcional)</p>';
+            return;
+        }
+        container.innerHTML = `
+            <p style="color:#4CAF50;font-weight:600;">✅ Meta Pixel configurado: ${escapeHtml(trimmed)}</p>
+        `;
+    },
+
     async init() {
         const config = await this.load();
         const tikInput = document.getElementById('tiktok-url');
         const igInput = document.getElementById('instagram-url');
         const waInput = document.getElementById('whatsapp-number');
+        const gaInput = document.getElementById('ga-measurement-id');
+        const metaInput = document.getElementById('meta-pixel-id');
+
         if (tikInput) tikInput.value = config.tiktok;
         if (igInput) igInput.value = config.instagram;
         if (waInput) waInput.value = config.whatsapp;
+        if (gaInput) gaInput.value = config.ga;
+        if (metaInput) metaInput.value = config.metaPixel;
 
         const btnTiktok = document.getElementById('btn-save-tiktok');
         const btnInstagram = document.getElementById('btn-save-instagram');
         const btnWhatsapp = document.getElementById('btn-save-whatsapp');
+        const btnGa = document.getElementById('btn-save-ga');
+        const btnMeta = document.getElementById('btn-save-meta-pixel');
 
         if (btnTiktok) {
             btnTiktok.addEventListener('click', async () => {
@@ -697,10 +749,46 @@ const SocialMediaAdmin = {
             });
         }
 
+        if (btnGa) {
+            btnGa.addEventListener('click', async () => {
+                const val = (gaInput.value || '').trim();
+                if (val && !/^G-[A-Za-z0-9]+$/i.test(val)) {
+                    Toast.show('ID de GA4 inválido: debe tener el formato G-XXXXXXXXXX', 'error');
+                    return;
+                }
+                const saved = await this.saveSetting('ga_measurement_id', val);
+                if (!saved) {
+                    Toast.show('No se pudo guardar el ID de GA4', 'error');
+                    return;
+                }
+                Toast.show(val ? 'ID de GA4 guardado y activado' : 'GA4 pausado (campo vacío)', 'success');
+                this.renderGAPreview(val);
+            });
+        }
+
+        if (btnMeta) {
+            btnMeta.addEventListener('click', async () => {
+                const val = (metaInput.value || '').trim();
+                if (val && !/^\d{5,20}$/.test(val)) {
+                    Toast.show('ID de Pixel inválido: debe contener solo dígitos', 'error');
+                    return;
+                }
+                const saved = await this.saveSetting('meta_pixel_id', val);
+                if (!saved) {
+                    Toast.show('No se pudo guardar el Pixel de Meta', 'error');
+                    return;
+                }
+                Toast.show(val ? 'Meta Pixel guardado' : 'Meta Pixel desactivado', 'success');
+                this.renderMetaPreview(val);
+            });
+        }
+
         // Show current previews
         this.renderPreview('tiktok', config.tiktok);
         this.renderPreview('instagram', config.instagram);
         this.renderWhatsAppPreview(config.whatsapp);
+        this.renderGAPreview(config.ga);
+        this.renderMetaPreview(config.metaPixel);
     },
 
     renderPreview(platform, url) {

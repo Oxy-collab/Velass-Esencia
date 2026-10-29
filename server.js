@@ -41,7 +41,7 @@ if (allowedOrigins.length > 0) {
     app.use(cors({ origin: allowedOrigins, credentials: true }));
 }
 
-// --- CABECERAS DE SEGURIDAD (CSP compatible con los CDNs y embeds del sitio) ---
+// --- CABECERAS DE SEGURIDAD (CSP compatible con los CDNs, analítica y embeds del sitio) ---
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -50,11 +50,39 @@ app.use(helmet({
             objectSrc: ["'none'"],
             frameAncestors: ["'self'"],
             formAction: ["'self'"],
-            scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://www.tiktok.com', 'https://*.tiktok.com', 'https://www.instagram.com', 'https://*.instagram.com'],
+            scriptSrc: [
+                "'self'",
+                'https://cdn.jsdelivr.net',
+                'https://www.tiktok.com',
+                'https://*.tiktok.com',
+                'https://www.instagram.com',
+                'https://*.instagram.com',
+                'https://www.googletagmanager.com',
+                'https://connect.facebook.net'
+            ],
             styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
             fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
-            imgSrc: ["'self'", 'data:', 'https:'],
-            connectSrc: ["'self'", 'https://www.tiktok.com', 'https://*.tiktok.com', 'https://www.instagram.com', 'https://*.instagram.com'],
+            imgSrc: [
+                "'self'",
+                'data:',
+                'https:',
+                'https://www.google-analytics.com',
+                'https://*.google-analytics.com',
+                'https://*.googletagmanager.com',
+                'https://www.facebook.com'
+            ],
+            connectSrc: [
+                "'self'",
+                'https://www.tiktok.com',
+                'https://*.tiktok.com',
+                'https://www.instagram.com',
+                'https://*.instagram.com',
+                'https://www.google-analytics.com',
+                'https://*.google-analytics.com',
+                'https://*.analytics.google.com',
+                'https://*.googletagmanager.com',
+                'https://connect.facebook.net'
+            ],
             frameSrc: ['https://www.tiktok.com', 'https://*.tiktok.com', 'https://www.instagram.com', 'https://*.instagram.com']
         }
     },
@@ -570,15 +598,17 @@ app.get('/api/users/count', requireAdmin, async (req, res) => {
 });
 
 // --- API: SETTINGS ---
-// Claves públicas que usa la portada: social_* (embeds) y whatsapp_number (pedidos).
+// Claves públicas que usa la portada: social_* (embeds), whatsapp_number (pedidos), ga_measurement_id y meta_pixel_id.
 const publicSettingKey = (key) => {
     const value = String(key);
-    return value.startsWith('social_') || value === 'whatsapp_number';
+    return value.startsWith('social_') || value === 'whatsapp_number' || value === 'ga_measurement_id' || value === 'meta_pixel_id';
 };
 
 // Valor por defecto si la clave pública no está guardada en la BD.
 const PUBLIC_SETTING_DEFAULTS = {
-    whatsapp_number: process.env.WHATSAPP_NUMBER || '573005798487'
+    whatsapp_number: process.env.WHATSAPP_NUMBER || '573005798487',
+    ga_measurement_id: process.env.GA_MEASUREMENT_ID || 'G-17KGKVB85Z',
+    meta_pixel_id: process.env.META_PIXEL_ID || ''
 };
 
 app.get('/api/settings/:key', (req, res, next) => {
@@ -588,7 +618,12 @@ app.get('/api/settings/:key', (req, res, next) => {
     try {
         const result = await pool.query('SELECT value FROM settings WHERE key=$1', [req.params.key]);
         const stored = result.rows[0] ? result.rows[0].value : null;
-        const value = stored || PUBLIC_SETTING_DEFAULTS[req.params.key] || null;
+        let value = null;
+        if (stored !== null && stored !== undefined) {
+            value = stored;
+        } else if (PUBLIC_SETTING_DEFAULTS[req.params.key] !== undefined) {
+            value = PUBLIC_SETTING_DEFAULTS[req.params.key];
+        }
         res.json({ value });
     } catch (err) {
         console.error(err);
@@ -599,8 +634,6 @@ app.get('/api/settings/:key', (req, res, next) => {
 app.post('/api/settings', requireAdmin, validateBody(settingSchema), async (req, res) => {
     const { key, value } = req.body;
 
-    // El número de WhatsApp se guarda normalizado (solo dígitos, 10-15) para que
-    // el enlace wa.me sea válido.
     let finalValue = value;
     if (key === 'whatsapp_number') {
         const digits = String(value).replace(/\D/g, '');
@@ -608,6 +641,18 @@ app.post('/api/settings', requireAdmin, validateBody(settingSchema), async (req,
             return res.status(400).json({ error: 'Número de WhatsApp inválido (usa 10-15 dígitos con código de país)' });
         }
         finalValue = digits;
+    } else if (key === 'ga_measurement_id') {
+        const trimmed = String(value).trim();
+        if (trimmed !== '' && !/^G-[A-Za-z0-9]+$/i.test(trimmed)) {
+            return res.status(400).json({ error: 'ID de medición de GA4 inválido (debe tener el formato G-XXXXXXXXXX o estar vacío)' });
+        }
+        finalValue = trimmed;
+    } else if (key === 'meta_pixel_id') {
+        const trimmed = String(value).trim();
+        if (trimmed !== '' && !/^\d{5,20}$/.test(trimmed)) {
+            return res.status(400).json({ error: 'ID de Meta Pixel inválido (debe contener solo dígitos o estar vacío)' });
+        }
+        finalValue = trimmed;
     }
 
     try {
