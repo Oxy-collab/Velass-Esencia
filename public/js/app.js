@@ -221,11 +221,28 @@ const CatalogSystem = {
             `;
 // click para abrir el detalle
             card.addEventListener('click', ()=>openProductDetail(p));
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'btn cart-add-btn';
+            addBtn.textContent = 'Añadir al carrito';
+            addBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                CartSystem.add(p);
+            });
+            card.querySelector('.product-info').appendChild(addBtn);
+
                 grid.appendChild(card);
             });
             section.appendChild(grid);
             container.appendChild(section);
         }
+    },
+
+    // Precio efectivo (con el descuento de "Día de la madre" mientras no esté en BD — CV-3)
+    effectivePrice(product) {
+        const price = Number(product && product.price) || 0;
+        return normalizeCategory(product && product.category) === 'Día de la madre' ? price * 0.9 : price;
     },
 
     whatsappNumber: null,
@@ -661,6 +678,172 @@ const SocialFeedSystem = {
     }
 };
 
+// =================== CARRITO / PEDIDO MÚLTIPLE ===================
+const CartSystem = {
+    items: [],
+    storage: null,
+    drawer: null,
+    overlay: null,
+
+    init() {
+        if (!document.getElementById('cart-btn')) return;
+        try { this.storage = window.localStorage; } catch (e) { this.storage = null; }
+        this.items = Cart.load(this.storage);
+        this.drawer = document.getElementById('cart-drawer');
+        this.overlay = document.getElementById('cart-overlay');
+        this.bind();
+        this.render();
+    },
+
+    bind() {
+        const openBtn = document.getElementById('cart-btn');
+        const closeBtn = document.getElementById('cart-close');
+        const checkoutBtn = document.getElementById('cart-checkout');
+        const clearBtn = document.getElementById('cart-clear');
+        if (openBtn) openBtn.addEventListener('click', () => this.openPanel());
+        if (closeBtn) closeBtn.addEventListener('click', () => this.closePanel());
+        if (this.overlay) this.overlay.addEventListener('click', () => this.closePanel());
+        if (checkoutBtn) checkoutBtn.addEventListener('click', () => this.checkout());
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+            if (this.items.length === 0) return;
+            this.items = [];
+            this.persist();
+            this.render();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') this.closePanel();
+        });
+    },
+
+    openPanel() {
+        if (!this.drawer) return;
+        this.drawer.classList.add('open');
+        if (this.overlay) this.overlay.classList.add('active');
+        this.drawer.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    },
+
+    closePanel() {
+        if (!this.drawer) return;
+        this.drawer.classList.remove('open');
+        if (this.overlay) this.overlay.classList.remove('active');
+        this.drawer.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    },
+
+    add(product) {
+        if (!product) return;
+        const effective = CatalogSystem.effectivePrice(product);
+        this.items = Cart.addItem(this.items, Object.assign({}, product, { price: effective }));
+        this.persist();
+        this.render();
+        this.openPanel();
+    },
+
+    changeQty(id, delta) {
+        const current = this.items.find((item) => item.id === Number(id));
+        if (!current) return;
+        const nextQty = current.qty + delta;
+        this.items = nextQty < 1 ? Cart.removeItem(this.items, id) : Cart.setQty(this.items, id, nextQty);
+        this.persist();
+        this.render();
+    },
+
+    remove(id) {
+        this.items = Cart.removeItem(this.items, id);
+        this.persist();
+        this.render();
+    },
+
+    persist() {
+        Cart.save(this.storage, this.items);
+    },
+
+    checkout() {
+        const message = Cart.buildMessage(this.items);
+        if (!message) return;
+        AppSystem.openWhatsApp(message);
+        this.closePanel();
+    },
+
+    renderItem(item) {
+        const row = document.createElement('div');
+        row.className = 'cart-item';
+
+        const img = document.createElement('img');
+        img.className = 'cart-item-img';
+        img.src = safeImageUrl(item.img);
+        img.alt = item.name;
+        img.loading = 'lazy';
+
+        const info = document.createElement('div');
+        info.className = 'cart-item-info';
+
+        const name = document.createElement('p');
+        name.className = 'cart-item-name';
+        name.textContent = item.name;
+
+        const price = document.createElement('p');
+        price.className = 'cart-item-price';
+        price.textContent = WhatsApp.formatCOP(item.price) + ' c/u';
+
+        const qty = document.createElement('div');
+        qty.className = 'cart-item-qty';
+        const minus = document.createElement('button');
+        minus.type = 'button';
+        minus.textContent = '−';
+        minus.setAttribute('aria-label', 'Quitar una unidad de ' + item.name);
+        minus.addEventListener('click', () => this.changeQty(item.id, -1));
+
+        const qtyValue = document.createElement('span');
+        qtyValue.textContent = String(item.qty);
+
+        const plus = document.createElement('button');
+        plus.type = 'button';
+        plus.textContent = '+';
+        plus.setAttribute('aria-label', 'Añadir una unidad de ' + item.name);
+        plus.addEventListener('click', () => this.changeQty(item.id, 1));
+
+        qty.append(minus, qtyValue, plus);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'cart-item-remove';
+        removeBtn.textContent = '×';
+        removeBtn.setAttribute('aria-label', 'Eliminar ' + item.name + ' del carrito');
+        removeBtn.addEventListener('click', () => this.remove(item.id));
+
+        info.append(name, price, qty);
+        row.append(img, info, removeBtn);
+        return row;
+    },
+
+    render() {
+        const itemsEl = document.getElementById('cart-items');
+        const emptyEl = document.getElementById('cart-empty');
+        const totalEl = document.getElementById('cart-total');
+        const countEl = document.getElementById('cart-count');
+        const checkoutBtn = document.getElementById('cart-checkout');
+        const clearBtn = document.getElementById('cart-clear');
+
+        const total = Cart.count ? Cart.subtotal(this.items) : 0;
+        const count = Cart.count(this.items);
+
+        if (countEl) {
+            countEl.textContent = String(count);
+            countEl.hidden = count === 0;
+        }
+        if (totalEl) totalEl.textContent = WhatsApp.formatCOP(total);
+        if (checkoutBtn) checkoutBtn.disabled = this.items.length === 0;
+        if (clearBtn) clearBtn.disabled = this.items.length === 0;
+        if (emptyEl) emptyEl.style.display = this.items.length === 0 ? 'block' : 'none';
+
+        if (!itemsEl) return;
+        itemsEl.textContent = '';
+        this.items.forEach((item) => itemsEl.appendChild(this.renderItem(item)));
+    }
+};
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
     ThemeSystem.init();
@@ -668,6 +851,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await AppSystem.init();
     await AppSystem.initWhatsApp();
     await CatalogSystem.init();
+    CartSystem.init();
     CustomCandleSystem.init();
     CandleTestSystem.init();
     AuthSystem.init();
@@ -746,6 +930,13 @@ function openProductDetail(product) {
     button.textContent = 'Pedir por WhatsApp';
     button.addEventListener('click', () => CatalogSystem.buyProduct(product));
     content.appendChild(button);
+
+    const addToCartBtn = document.createElement('button');
+    addToCartBtn.type = 'button';
+    addToCartBtn.className = 'btn text-btn';
+    addToCartBtn.textContent = 'Añadir al carrito';
+    addToCartBtn.addEventListener('click', () => CartSystem.add(product));
+    content.appendChild(addToCartBtn);
 
     modal.classList.add('active');
 }
