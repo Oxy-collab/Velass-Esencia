@@ -470,8 +470,16 @@ app.get('/api/users/count', requireAdmin, async (req, res) => {
 });
 
 // --- API: SETTINGS ---
-// Las claves social_* son públicas (las usa la portada); el resto requiere admin.
-const publicSettingKey = (key) => String(key).startsWith('social_');
+// Claves públicas que usa la portada: social_* (embeds) y whatsapp_number (pedidos).
+const publicSettingKey = (key) => {
+    const value = String(key);
+    return value.startsWith('social_') || value === 'whatsapp_number';
+};
+
+// Valor por defecto si la clave pública no está guardada en la BD.
+const PUBLIC_SETTING_DEFAULTS = {
+    whatsapp_number: process.env.WHATSAPP_NUMBER || '573005798487'
+};
 
 app.get('/api/settings/:key', (req, res, next) => {
     if (publicSettingKey(req.params.key)) return next();
@@ -479,7 +487,9 @@ app.get('/api/settings/:key', (req, res, next) => {
 }, async (req, res) => {
     try {
         const result = await pool.query('SELECT value FROM settings WHERE key=$1', [req.params.key]);
-        res.json({ value: result.rows[0] ? result.rows[0].value : null });
+        const stored = result.rows[0] ? result.rows[0].value : null;
+        const value = stored || PUBLIC_SETTING_DEFAULTS[req.params.key] || null;
+        res.json({ value });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error interno' });
@@ -488,12 +498,24 @@ app.get('/api/settings/:key', (req, res, next) => {
 
 app.post('/api/settings', requireAdmin, validateBody(settingSchema), async (req, res) => {
     const { key, value } = req.body;
+
+    // El número de WhatsApp se guarda normalizado (solo dígitos, 10-15) para que
+    // el enlace wa.me sea válido.
+    let finalValue = value;
+    if (key === 'whatsapp_number') {
+        const digits = String(value).replace(/\D/g, '');
+        if (!/^\d{10,15}$/.test(digits)) {
+            return res.status(400).json({ error: 'Número de WhatsApp inválido (usa 10-15 dígitos con código de país)' });
+        }
+        finalValue = digits;
+    }
+
     try {
         await pool.query(
             'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value',
-            [key, value]
+            [key, finalValue]
         );
-        res.json({ success: true });
+        res.json({ success: true, key, value: finalValue });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error interno' });

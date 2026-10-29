@@ -228,19 +228,44 @@ const CatalogSystem = {
         }
     },
 
-    buyProduct(productName) {
-        const text = `Hola! Quiero la vela "${productName}".\nMi dirección de envío es: `;
-        this.openSocialWithText(text);
+    whatsappNumber: null,
+
+    // Número configurable desde el panel (setting whatsapp_number); si falta, el de por defecto.
+    async initWhatsApp() {
+        try {
+            const res = await fetch(`${API_BASE}/api/settings/whatsapp_number`);
+            if (res.ok) {
+                const data = await res.json();
+                this.whatsappNumber = WhatsApp.normalizeWhatsAppNumber(data.value);
+            }
+        } catch (err) {
+            console.error('Error cargando el número de WhatsApp:', err);
+        }
+        if (!this.whatsappNumber) this.whatsappNumber = WhatsApp.DEFAULT_NUMBER;
+
+        const floatBtn = document.getElementById('whatsapp-float');
+        const generalUrl = WhatsApp.buildWhatsAppUrl(this.whatsappNumber, WhatsApp.buildGeneralMessage());
+        if (floatBtn && generalUrl) {
+            floatBtn.href = generalUrl;
+            floatBtn.target = '_blank';
+            floatBtn.rel = 'noopener noreferrer';
+        }
     },
 
-    openSocialWithText(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            alert('¡Mensaje copiado al portapapeles!\nSerás redirigido a nuestro Instagram para que pegues el mensaje en nuestro chat.');
-            window.open('https://www.instagram.com/velass.esencia/', '_blank');
-        }).catch(() => {
-            const waUrl = `https://api.whatsapp.com/send?phone=573005798487&text=${encodeURIComponent(text)}`;
-            window.open(waUrl, '_blank');
-        });
+    buyProduct(product) {
+        this.openWhatsApp(WhatsApp.buildProductMessage(product || {}));
+    },
+
+    openWhatsApp(message) {
+        const url = WhatsApp.buildWhatsAppUrl(this.whatsappNumber || WhatsApp.DEFAULT_NUMBER, message);
+        if (!url) {
+            alert('No hay un número de WhatsApp configurado. Escríbenos por Instagram.');
+            return;
+        }
+        try {
+            window.dispatchEvent(new CustomEvent('order_intent', { detail: { message } }));
+        } catch (err) { /* sin analytics */ }
+        window.open(url, '_blank', 'noopener');
     }
 };
 
@@ -255,9 +280,9 @@ const CustomCandleSystem = {
                 const color = document.getElementById('custom-color').value;
                 const shape = document.getElementById('custom-shape').value;
 
-                const text = `Hola! Quiero pedir una vela personalizada con la siguiente configuración:\n- Olor: ${scent}\n- Color: ${color}\n- Figura/Raza: ${shape}\n\nMi dirección de envío es: `;
+                const text = WhatsApp.buildCustomMessage({ scent, color, shape });
 
-                CatalogSystem.openSocialWithText(text);
+                CatalogSystem.openWhatsApp(text);
                 form.reset();
             });
         }
@@ -641,6 +666,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     ThemeSystem.init();
     SidebarSystem.init();
     await AppSystem.init();
+    await AppSystem.initWhatsApp();
     await CatalogSystem.init();
     CustomCandleSystem.init();
     CandleTestSystem.init();
@@ -717,8 +743,8 @@ function openProductDetail(product) {
 
     const button = document.createElement('button');
     button.className = 'btn primary-btn';
-    button.textContent = 'Pedir por WhatsApp/IG';
-    button.addEventListener('click', () => CatalogSystem.buyProduct(String(product.name || '')));
+    button.textContent = 'Pedir por WhatsApp';
+    button.addEventListener('click', () => CatalogSystem.buyProduct(product));
     content.appendChild(button);
 
     modal.classList.add('active');

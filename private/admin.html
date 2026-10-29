@@ -337,10 +337,25 @@
                             <p>Vista previa aparecerá aquí después de guardar</p>
                         </div>
                     </div>
+
+                    <!-- WhatsApp Card -->
+                    <div class="social-admin-card">
+                        <h3>💬 WhatsApp (pedidos)</h3>
+                        <div class="form-group">
+                            <label>Número de WhatsApp para pedidos</label>
+                            <input type="tel" id="whatsapp-number" class="form-control"
+                                placeholder="573005798487">
+                            <small style="color:#999;">Con código de país, sin + ni espacios (se normaliza solo).</small>
+                        </div>
+                        <button class="btn primary-btn" id="btn-save-whatsapp" style="width:100%;">Guardar WhatsApp</button>
+                        <div class="social-preview-mini" id="whatsapp-preview-mini">
+                            <p>Vista previa aparecerá aquí después de guardar</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(142,68,173,0.07); border-radius: 12px; border-left: 4px solid var(--primary-color);">
-                    <strong>💡 Tip:</strong> Cuando actualices las URLs aquí, los cambios se reflejarán automáticamente en la sección "Últimas Novedades" de la página del catálogo para todos los visitantes del sitio.
+                    <strong>💡 Tip:</strong> Los cambios se reflejan automáticamente en la página del catálogo: las «Últimas Novedades» y el número al que llegan los pedidos por WhatsApp.
                 </div>
             </section>
         </div>
@@ -454,6 +469,7 @@
         </div>
     </div>
 
+    <script src="js/whatsapp.js"></script>
     <script src="js/app.js"></script>
 
     <script src="js/admin.js"></script>
