@@ -36,6 +36,10 @@ npm start
 
 La app crea las tablas y los productos de ejemplo al arrancar.
 
+## Precios y ofertas
+
+Cada producto tiene `price` y opcionalmente `discount_price` (precio de oferta). La tienda muestra el precio tachado, el porcentaje de descuento y usa el precio efectivo en el detalle, el carrito y el mensaje de WhatsApp. Se configura desde **Panel → Inventario → Editar producto → "Precio de oferta (opcional)"**; vacío = sin oferta. El servidor rechaza ofertas que no sean estrictamente menores que el precio normal. Las categorías sin productos no se renderizan (p. ej. "Día de la madre" si queda vacía).
+
 ## Crear o reiniciar el administrador
 
 ```bash

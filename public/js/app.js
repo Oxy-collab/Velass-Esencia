@@ -169,6 +169,8 @@ const CatalogSystem = {
 
         for (const category of sortedCategories) {
             const items = grouped[category];
+            // Las categorías vacías no se muestran (p. ej. "Día de la madre" sin productos)
+            if (!Array.isArray(items) || items.length === 0) continue;
             const section = document.createElement('div');
             section.className = 'category-section';
 
@@ -199,14 +201,14 @@ const CatalogSystem = {
                 card.className = 'product-card';
                 const imgUrl = safeImageUrl(p.img);
                 
-                let originalPrice = p.price;
-                let displayPrice = formatter.format(p.price);
+                const hasDiscount = Pricing.hasDiscount(p);
+                const percent = Pricing.discountPercent(p);
+                let displayPrice = formatter.format(Pricing.effectivePrice(p));
                 let discountBadge = '';
-                
-                if (category === 'Día de la madre') {
-                    const discountedPrice = originalPrice * 0.9; // 10% discount
-                    displayPrice = `<span style="text-decoration:line-through;color:#999;font-size:0.85em;margin-right:5px;">${formatter.format(originalPrice)}</span> <span style="color:#e91e63;font-weight:bold;">${formatter.format(discountedPrice)}</span>`;
-                    discountBadge = `<div style="position:absolute;top:10px;right:10px;background:#e91e63;color:white;padding:5px 10px;border-radius:12px;font-size:0.8em;font-weight:bold;z-index:1;box-shadow: 0 2px 5px rgba(0,0,0,0.2);">-10% OFF</div>`;
+
+                if (hasDiscount) {
+                    displayPrice = `<span style="text-decoration:line-through;color:#999;font-size:0.85em;margin-right:5px;">${formatter.format(Number(p.price) || 0)}</span> <span style="color:#e91e63;font-weight:bold;">${formatter.format(Pricing.effectivePrice(p))}</span>`;
+                    discountBadge = `<div style="position:absolute;top:10px;right:10px;background:#e91e63;color:white;padding:5px 10px;border-radius:12px;font-size:0.8em;font-weight:bold;z-index:1;box-shadow: 0 2px 5px rgba(0,0,0,0.2);">-${percent}% OFF</div>`;
                 }
 
                 card.innerHTML = `
@@ -239,10 +241,9 @@ const CatalogSystem = {
         }
     },
 
-    // Precio efectivo (con el descuento de "Día de la madre" mientras no esté en BD — CV-3)
+    // Precio efectivo: usa la oferta guardada en la BD (products.discount_price)
     effectivePrice(product) {
-        const price = Number(product && product.price) || 0;
-        return normalizeCategory(product && product.category) === 'Día de la madre' ? price * 0.9 : price;
+        return Pricing.effectivePrice(product);
     },
 
     whatsappNumber: null,
@@ -270,7 +271,9 @@ const CatalogSystem = {
     },
 
     buyProduct(product) {
-        this.openWhatsApp(WhatsApp.buildProductMessage(product || {}));
+        // El mensaje muestra el precio efectivo (con la oferta de la BD si existe)
+        const item = product ? Object.assign({}, product, { price: Pricing.effectivePrice(product) }) : {};
+        this.openWhatsApp(WhatsApp.buildProductMessage(item));
     },
 
     openWhatsApp(message) {
@@ -874,8 +877,9 @@ function openProductDetail(product) {
     if (!modal || !content) return;
 
     const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-    const isMotherDay = normalizeCategory(product.category) === 'Día de la madre';
     const price = Number(product.price) || 0;
+    const hasDiscount = Pricing.hasDiscount(product);
+    const percent = Pricing.discountPercent(product);
 
     content.textContent = '';
 
@@ -905,7 +909,7 @@ function openProductDetail(product) {
     priceLabel.textContent = 'Precio:';
     priceRow.appendChild(priceLabel);
     priceRow.appendChild(document.createTextNode(' '));
-    if (isMotherDay) {
+    if (hasDiscount) {
         const original = document.createElement('span');
         original.style.textDecoration = 'line-through';
         original.style.color = '#999';
@@ -916,10 +920,18 @@ function openProductDetail(product) {
         const discounted = document.createElement('span');
         discounted.style.color = '#e91e63';
         discounted.style.fontWeight = 'bold';
-        discounted.textContent = fmt.format(price * 0.9);
+        discounted.textContent = fmt.format(Pricing.effectivePrice(product));
+
+        const badge = document.createElement('span');
+        badge.style.color = '#e91e63';
+        badge.style.fontSize = '0.85em';
+        badge.style.fontWeight = 'bold';
+        badge.style.marginLeft = '5px';
+        badge.textContent = `(-${percent}% OFF)`;
 
         priceRow.appendChild(original);
         priceRow.appendChild(discounted);
+        priceRow.appendChild(badge);
     } else {
         priceRow.appendChild(document.createTextNode(fmt.format(price)));
     }
