@@ -721,7 +721,11 @@ app.get(['/', '/index.html'], async (req, res, next) => {
         const links = result.rows
             .map((p) => `<li><a href="/producto/${encodeURIComponent(p.slug)}">${escapeHtml(p.name)}</a></li>`)
             .join('');
-        res.type('html').send(raw.replace('<!--CATALOG_SEO-->', links));
+        let html = raw.replace('<!--CATALOG_SEO-->', links);
+        if (process.env.PUBLIC_URL && process.env.PUBLIC_URL !== 'https://velass-esencia.onrender.com') {
+            html = html.replace(/https:\/\/velass-esencia\.onrender\.com/g, process.env.PUBLIC_URL);
+        }
+        res.type('html').send(html);
     } catch (err) {
         next(err);
     }

@@ -2,3 +2,6 @@ node_modules/
 velassesencia.db
 package-lock.json
 *.log
+.agents/
+skills-lock.json
+scratch/

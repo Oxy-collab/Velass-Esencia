@@ -1,0 +1,26 @@
+{
+  "name": "Velass&Esencia",
+  "short_name": "Velass&Esencia",
+  "description": "Velas artesanales 100% cera de soja, hechas a mano en Colombia. Aromas únicos y velas decorativas personalizadas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2c1e38",
+  "theme_color": "#8E44AD",
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
