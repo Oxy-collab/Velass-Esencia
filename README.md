@@ -88,6 +88,21 @@ Las **reseñas** (autor, valoración 1–5 y comentario) se gestionan desde el m
 - **Meta Pixel**: soporte opcional configurable desde el panel o `META_PIXEL_ID`.
 - **CSP**: directivas actualizadas en `server.js` permitiendo dominios de Google Tag Manager, Google Analytics y Meta.
 
+## Marca y metadatos (CV-7)
+
+- **Nombre de marca unificado**: **"Velass&Esencia"** estandarizado en títulos, historia de marca, Open Graph y JSON-LD (corrigiendo la errata previa "Velas&Esencia").
+- **Favicon y app icons multiplataforma**:
+  - `favicon.svg`: icono vectorial escalable moderno con la vela y llama dorada artesanal.
+  - `favicon.ico`: icono multirresolución (16x16, 32x32, 48x48) para navegadores tradicionales y pestañas.
+  - `apple-touch-icon.png` (180×180) para dispositivos Apple / iOS Safari.
+  - `favicon-32x32.png` y `favicon-16x16.png` para compatibilidad universal.
+  - `site.webmanifest` con metadatos PWA y color de tema `#8E44AD`.
+- **Previsualizaciones en redes sociales (WhatsApp, Instagram, Twitter, Facebook)**:
+  - `og:image` de 1200×630 en `public/images/og-image.jpg` con diseño de marca, tipografía y sellos de cera 100% de soja.
+  - Etiquetas Open Graph y Twitter Cards completas (`og:title`, `og:description`, `og:url`, `og:image`, `og:locale=es_CO`, `twitter:card=summary_large_image`).
+  - Fallback automático en fichas de producto al `og-image.jpg` general si el producto no dispone de fotografía propia.
+- **Logotipo vectorial local**: servido directamente desde `/images/logo.svg` (con fallback `/images/logo.png`), eliminando dependencias de CDNs externos caídos.
+
 ## Seguridad (estado actual)
 
 - Contraseñas con **bcrypt** (`bcryptjs`; `BCRYPT_ROUNDS` configurable, 10 por defecto). Las contraseñas antiguas en texto plano se migran a hash al arrancar el servidor (y al vuelo en el primer login).
