@@ -44,7 +44,48 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+}
+
+/* Accessible focus ring (Apple HIG & A11y UX-4) */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Skip link accesibilidad */
+.skip-link {
+    position: absolute;
+    top: -120px;
+    left: 1rem;
+    background: var(--primary-color);
+    color: #ffffff !important;
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    z-index: 100000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    transition: top 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skip-link:focus {
+    top: 1rem;
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
 }
 
 body {
@@ -160,13 +201,8 @@ a:hover {
 }
 
 [data-theme="dark"] .sidebar {
-    background: rgba(10, 5, 20, 0.8);
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-[data-theme="dark"] .sidebar {
-    background: rgba(30, 30, 30, 0.4);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(20, 12, 30, 0.85);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar.open {
@@ -1227,35 +1263,81 @@ main {
     margin-top: 2rem;
 }
 
-/* Product Detail Modal */
+/* Product Detail Modal (UX-2, Apple HIG & Emil Kowalski) */
 #product-detail-modal {
-    display: none;
+    display: flex;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(10, 5, 20, 0.65);
     z-index: 10000;
     justify-content: center;
     align-items: center;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s;
+    padding: 1.25rem;
 }
 
 #product-detail-modal.active {
-    display: flex;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 #product-detail-content {
     background: var(--card-bg);
     color: var(--text-color);
-    padding: 2.5rem;
-    border-radius: var(--border-radius);
-    max-width: 90vw;
-    width: 500px;
+    padding: 2.25rem;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    max-width: 520px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     position: relative;
-    box-shadow: var(--shadow);
-    animation: scaleIn 0.3s ease-out;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    transform: scale(0.95) translateY(8px);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#product-detail-modal.active #product-detail-content {
+    transform: scale(1) translateY(0);
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(142, 68, 173, 0.08);
+    border: 1px solid rgba(142, 68, 173, 0.15);
+    color: var(--text-color);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 10;
+}
+
+.modal-close-btn:hover {
+    background: rgba(142, 68, 173, 0.2);
+    transform: scale(1.05);
+}
+
+.modal-close-btn:active {
+    transform: scale(0.94);
 }
 
 #product-detail-inner img {
@@ -1719,75 +1801,235 @@ main {
     }
 }
 
-/* =================== TOAST NOTIFICATIONS =================== */
+/* =================== TOAST NOTIFICATIONS (Emil Kowalski / Sonner & Apple HIG) =================== */
 .toast-container {
     position: fixed;
-    top: 90px;
-    right: 20px;
-    z-index: 9999;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100000;
     display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    flex-direction: column-reverse;
+    gap: 10px;
     pointer-events: none;
+    max-width: calc(100vw - 32px);
 }
 
-.toast {
+@media (max-width: 600px) {
+    .toast-container {
+        bottom: 16px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: calc(100vw - 32px);
+    }
+}
+
+.toast-item, .toast {
+    pointer-events: auto;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    border-radius: 12px;
-    background: var(--card-bg);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-    font-size: 0.95rem;
+    gap: 12px;
+    padding: 12px 18px;
+    min-width: 280px;
+    max-width: 440px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+    color: #2c1e38;
+    font-size: 0.92rem;
     font-weight: 500;
-    color: var(--text-color);
-    animation: toastIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
-    pointer-events: all;
-    backdrop-filter: blur(12px);
-    border-left: 4px solid var(--primary-color);
-    max-width: 360px;
+    line-height: 1.4;
+    animation: sonnerToastIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.toast.success {
-    border-left-color: #4CAF50;
+[data-theme="dark"] .toast-item,
+[data-theme="dark"] .toast {
+    background: rgba(28, 18, 38, 0.94);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+    color: #f4ecf7;
 }
 
-.toast.error {
-    border-left-color: #F44336;
+.toast-item.toast-exit, .toast.hide {
+    animation: sonnerToastOut 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.toast.info {
-    border-left-color: #2196F3;
+@keyframes sonnerToastIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes sonnerToastOut {
+    to {
+        opacity: 0;
+        transform: translateY(8px) scale(0.95);
+    }
 }
 
 .toast-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    word-break: break-word;
+}
+
+.toast-close-btn {
+    background: transparent;
+    border: none;
+    color: currentColor;
+    opacity: 0.5;
     font-size: 1.3rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.15s, transform 0.15s;
+    flex-shrink: 0;
 }
 
-.toast.hide {
-    animation: toastOut 0.3s ease forwards;
+.toast-close-btn:hover {
+    opacity: 1;
+    transform: scale(1.15);
 }
 
-@keyframes toastIn {
-    from {
-        opacity: 0;
-        transform: translateX(60px);
-    }
+/* =================== SKELETON LOADERS (UX-6, Emil Kowalski Shimmer) =================== */
+.catalog-skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 2rem;
+    padding: 1rem 0 2.5rem 0;
+    width: 100%;
+}
 
-    to {
-        opacity: 1;
-        transform: translateX(0);
+.skeleton-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    border: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: rgba(142, 68, 173, 0.08);
+    border-radius: 8px;
+}
+
+.skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+    transform: translateX(-100%);
+    animation: skeletonShimmer 1.6s infinite cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .skeleton-shimmer {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .skeleton-shimmer::after {
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+}
+
+@keyframes skeletonShimmer {
+    100% {
+        transform: translateX(100%);
     }
 }
 
-@keyframes toastOut {
-    from {
-        opacity: 1;
-        transform: translateX(0);
-    }
+.skeleton-img {
+    height: 190px;
+    width: 100%;
+    border-radius: 12px;
+}
 
-    to {
+.skeleton-title {
+    height: 22px;
+    width: 65%;
+}
+
+.skeleton-desc {
+    height: 14px;
+    width: 90%;
+}
+
+.skeleton-desc-short {
+    height: 14px;
+    width: 60%;
+}
+
+.skeleton-price {
+    height: 24px;
+    width: 45%;
+    margin-top: 0.5rem;
+}
+
+.skeleton-btn {
+    height: 42px;
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 0.5rem;
+}
+
+/* =================== ESTADOS DE CATÁLOGO (Vacío y Error) =================== */
+.catalog-state-box {
+    text-align: center;
+    padding: 3.5rem 1.5rem;
+    max-width: 480px;
+    margin: 2rem auto;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.catalog-state-icon {
+    font-size: 3rem;
+    margin-bottom: 0.25rem;
+    display: inline-block;
+    filter: drop-shadow(0 4px 12px rgba(142, 68, 173, 0.3));
+}
+
+.catalog-state-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.catalog-state-desc {
+    color: var(--text-color);
+    opacity: 0.8;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
         opacity: 0;
         transform: translateX(60px);
     }
@@ -2098,9 +2340,15 @@ main {
 [data-theme="dark"] .materials-alert-box {
     border-color: rgba(244, 67, 54, 0.3);
 }
-* {
-    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+/* Micro-interactions & transitions (Emil Kowalski) */
+.btn, .action-btn, .option-btn, .social-follow-btn, .product-card, .tab-btn {
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.btn:active, .action-btn:active, .option-btn:active, .social-follow-btn:active {
+    transform: scale(0.97);
+}
+
 /* ==========================================================
    LIQUID GLASS - Fondo con ondas y efecto vidrio líquido
    ========================================================== */
@@ -2132,6 +2380,32 @@ body::before {
     0%   { transform: translate(0, 0) scale(1); }
     50%  { transform: translate(2%, 1%) scale(1.05); }
     100% { transform: translate(-1%, 2%) scale(0.95); }
+}
+
+/* Reducción de movimiento accesible (UX-4) */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    body::before {
+        animation: none !important;
+    }
+
+    .liquid-glass::before,
+    .liquid-glass::after {
+        animation: none !important;
+    }
+
+    .skeleton-shimmer::after {
+        animation: none !important;
+        display: none !important;
+    }
 }
 
 /* ---- Clase Liquid Glass para contenedores ---- */

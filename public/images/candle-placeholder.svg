@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="600" height="450">
+  <defs>
+    <linearGradient id="bgG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBF7F4"/>
+      <stop offset="50%" stop-color="#F5EEF8"/>
+      <stop offset="100%" stop-color="#EBDDF0"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#E67E22"/>
+      <stop offset="45%" stop-color="#F39C12"/>
+      <stop offset="100%" stop-color="#F1C40F"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F1C40F" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#F1C40F" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="candleBody" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="50%" stop-color="#FAF5FC"/>
+      <stop offset="100%" stop-color="#E8DAEF"/>
+    </linearGradient>
+    <style>
+      .title { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 600; fill: #4A235A; letter-spacing: -0.3px; text-anchor: middle; }
+      .sub { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 400; fill: #8E44AD; letter-spacing: 1.5px; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="450" fill="url(#bgG)"/>
+  
+  <!-- Subtle border -->
+  <rect x="12" y="12" width="576" height="426" rx="20" fill="none" stroke="#8E44AD" stroke-opacity="0.12" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <!-- Candle Emblem -->
+  <g transform="translate(300, 190)">
+    <!-- Glow -->
+    <circle cx="0" cy="-35" r="75" fill="url(#glow)"/>
+
+    <!-- Shadow -->
+    <ellipse cx="0" cy="65" rx="55" ry="12" fill="#4A235A" opacity="0.12"/>
+
+    <!-- Glass / Candle cup -->
+    <rect x="-42" y="-10" width="84" height="72" rx="10" fill="url(#candleBody)" stroke="#8E44AD" stroke-opacity="0.2" stroke-width="1.5"/>
+    <ellipse cx="0" cy="-10" rx="42" ry="10" fill="#FFFFFF" stroke="#8E44AD" stroke-opacity="0.2" stroke-width="1.5"/>
+    <ellipse cx="0" cy="-10" rx="36" ry="7" fill="#F5EEF8"/>
+
+    <!-- Wick -->
+    <line x1="0" y1="-10" x2="0" y2="-26" stroke="#2C3E50" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Flame -->
+    <path d="M 0 -62 C -14 -42, -12 -32, 0 -24 C 12 -32, 14 -42, 0 -62 Z" fill="url(#flame)"/>
+    <ellipse cx="0" cy="-34" rx="4" ry="7" fill="#FFF9E6"/>
+
+    <!-- Sparkles -->
+    <circle cx="-50" cy="-45" r="2.5" fill="#F39C12" opacity="0.7"/>
+    <circle cx="55" cy="-35" r="2" fill="#F1C40F" opacity="0.8"/>
+    <circle cx="45" cy="-60" r="1.5" fill="#E67E22" opacity="0.6"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="300" y="315" class="title">Velass &amp; Esencia</text>
+  <text x="300" y="342" class="sub">100% CERA DE SOJA · HECHA A MANO</text>
+</svg>
+

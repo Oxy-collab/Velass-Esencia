@@ -36,7 +36,7 @@ function safeHttpUrl(value) {
 }
 
 function safeImageUrl(value) {
-    return safeHttpUrl(value) || 'https://placehold.co/400x300?text=Imagen+Pendiente';
+    return safeHttpUrl(value) || '/images/candle-placeholder.svg';
 }
 
 // Normalize categories (map variants to canonical labels)
@@ -117,7 +117,7 @@ const AppSystem = {
             return await res.json();
         } catch (err) {
             console.error('Error fetching products:', err);
-            return [];
+            return null;
         }
     },
 
@@ -148,15 +148,60 @@ const CatalogSystem = {
         }
     },
 
+    renderSkeletons() {
+        return `
+            <div class="catalog-skeleton-grid" aria-label="Cargando catálogo de velas..." role="status">
+                ${Array(6).fill(0).map(() => `
+                    <div class="skeleton-card" aria-hidden="true">
+                        <div class="skeleton-shimmer skeleton-img"></div>
+                        <div class="skeleton-shimmer skeleton-title"></div>
+                        <div class="skeleton-shimmer skeleton-desc"></div>
+                        <div class="skeleton-shimmer skeleton-desc-short"></div>
+                        <div class="skeleton-shimmer skeleton-price"></div>
+                        <div class="skeleton-shimmer skeleton-btn"></div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    },
+
     async renderProducts() {
         const container = document.getElementById('catalog-container');
         if (!container) return;
 
+        // Render skeleton state immediately to eliminate CLS (UX-6, Emil Kowalski shimmer)
+        container.innerHTML = this.renderSkeletons();
+
         const products = await AppSystem.getProducts();
-        if (!Array.isArray(products) || products.length === 0) {
-            container.innerHTML = '<p style="text-align:center; padding: 2rem; color: #999;">No hay productos disponibles en este momento. ✨</p>';
+
+        // Error state with retry (UX-6)
+        if (products === null) {
+            container.innerHTML = `
+                <div class="catalog-state-box liquid-glass" role="alert">
+                    <span class="catalog-state-icon">⚠️</span>
+                    <h3 class="catalog-state-title">No pudimos conectar con la tienda</h3>
+                    <p class="catalog-state-desc">Hubo un problema al cargar el catálogo de velas. Por favor verifica tu conexión e inténtalo de nuevo.</p>
+                    <button type="button" class="btn primary-btn" id="catalog-retry-btn">Reintentar</button>
+                </div>
+            `;
+            const retryBtn = document.getElementById('catalog-retry-btn');
+            if (retryBtn) retryBtn.addEventListener('click', () => this.renderProducts());
             return;
         }
+
+        // Empty state (UX-6)
+        if (!Array.isArray(products) || products.length === 0) {
+            container.innerHTML = `
+                <div class="catalog-state-box liquid-glass">
+                    <span class="catalog-state-icon">🕯️</span>
+                    <h3 class="catalog-state-title">Catálogo en preparación</h3>
+                    <p class="catalog-state-desc">Pronto tendremos nuevas velas artesanales listas para ti. Si buscas una vela personalizada, puedes diseñarla en la sección de abajo.</p>
+                    <a href="#custom-candle-section" class="btn primary-btn">Personalizar vela</a>
+                </div>
+            `;
+            return;
+        }
+
         container.innerHTML = '';
         const formatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
@@ -207,8 +252,11 @@ const CatalogSystem = {
             items.forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('role', 'button');
+                card.setAttribute('aria-label', `Ver detalles de ${p.name}`);
+
                 const imgUrl = safeImageUrl(p.img);
-                
                 const hasDiscount = Pricing.hasDiscount(p);
                 const percent = Pricing.discountPercent(p);
                 let displayPrice = formatter.format(Pricing.effectivePrice(p));
@@ -216,31 +264,42 @@ const CatalogSystem = {
 
                 if (hasDiscount) {
                     displayPrice = `<span style="text-decoration:line-through;color:#999;font-size:0.85em;margin-right:5px;">${formatter.format(Number(p.price) || 0)}</span> <span style="color:#e91e63;font-weight:bold;">${formatter.format(Pricing.effectivePrice(p))}</span>`;
-                    discountBadge = `<div style="position:absolute;top:10px;right:10px;background:#e91e63;color:white;padding:5px 10px;border-radius:12px;font-size:0.8em;font-weight:bold;z-index:1;box-shadow: 0 2px 5px rgba(0,0,0,0.2);">-${percent}% OFF</div>`;
+                    discountBadge = `<div style="position:absolute;top:10px;right:10px;background:#e91e63;color:white;padding:5px 10px;border-radius:12px;font-size:0.8em;font-weight:bold;z-index:2;box-shadow: 0 2px 5px rgba(0,0,0,0.2);">-${percent}% OFF</div>`;
                 }
 
                 card.innerHTML = `
-            <div class="product-img" style="background-image: url('${escapeHtml(imgUrl)}'); position:relative;">${discountBadge}</div>
-            <div class="product-info">
-            <h3 class="product-title">${escapeHtml(p.name)}</h3>
-            <p class="product-desc">${escapeHtml(p.description || '')}</p>
-            <div class="product-footer">
-            <span class="product-price">${displayPrice}</span>
-            </div>
-            </div>
-            `;
-// click para abrir el detalle
-            card.addEventListener('click', ()=>openProductDetail(p));
+                    <div class="product-img-box" style="position:relative; width:100%; height:200px; border-radius:12px; overflow:hidden; background:rgba(142,68,173,0.06);">
+                        ${discountBadge}
+                        <img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(p.name)}" width="400" height="300" loading="lazy" onerror="this.onerror=null; this.src='/images/candle-placeholder.svg';" style="width:100%; height:100%; object-fit:cover; display:block;">
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-title">${escapeHtml(p.name)}</h3>
+                        <p class="product-desc">${escapeHtml(p.description || '')}</p>
+                        <div class="product-footer">
+                            <span class="product-price">${displayPrice}</span>
+                        </div>
+                    </div>
+                `;
 
-            const addBtn = document.createElement('button');
-            addBtn.type = 'button';
-            addBtn.className = 'btn cart-add-btn';
-            addBtn.textContent = 'Añadir al carrito';
-            addBtn.addEventListener('click', (event) => {
-                event.stopPropagation();
-                CartSystem.add(p);
-            });
-            card.querySelector('.product-info').appendChild(addBtn);
+                // Click y teclado accesible para abrir detalle
+                card.addEventListener('click', () => openProductDetail(p, card));
+                card.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openProductDetail(p, card);
+                    }
+                });
+
+                const addBtn = document.createElement('button');
+                addBtn.type = 'button';
+                addBtn.className = 'btn cart-add-btn';
+                addBtn.textContent = 'Añadir al carrito';
+                addBtn.setAttribute('aria-label', `Añadir ${p.name} al carrito`);
+                addBtn.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    CartSystem.add(p);
+                });
+                card.querySelector('.product-info').appendChild(addBtn);
 
                 grid.appendChild(card);
             });
@@ -287,7 +346,9 @@ const CatalogSystem = {
     openWhatsApp(message) {
         const url = WhatsApp.buildWhatsAppUrl(this.whatsappNumber || WhatsApp.DEFAULT_NUMBER, message);
         if (!url) {
-            alert('No hay un número de WhatsApp configurado. Escríbenos por Instagram.');
+            if (window.Toast) {
+                Toast.error('No hay un número de WhatsApp configurado. Escríbenos por Instagram.');
+            }
             return;
         }
         try {
@@ -317,10 +378,11 @@ const CustomCandleSystem = {
     }
 };
 
-// Candle Test System
+// Candle Test System (UX-7)
 const CandleTestSystem = {
     currentStep: 1,
     answers: [],
+    lastResult: null,
     results: {
         relax: {
             title: "Línea Bloom - Lavanda & Calma",
@@ -358,6 +420,36 @@ const CandleTestSystem = {
         const restartBtn = document.getElementById('restart-test');
         if (restartBtn) {
             restartBtn.addEventListener('click', () => this.restart());
+        }
+
+        const buyBtn = document.getElementById('test-buy-btn');
+        if (buyBtn) {
+            buyBtn.addEventListener('click', () => this.orderRecommended());
+        }
+
+        const cartBtn = document.getElementById('test-add-cart-btn');
+        if (cartBtn) {
+            cartBtn.addEventListener('click', () => this.addToCartRecommended());
+        }
+    },
+
+    orderRecommended() {
+        if (!this.lastResult) return;
+        const msg = `¡Hola! Hice el test de Velass&Esencia y mi vela ideal es: *${this.lastResult.title}*. ¿Tienen disponibilidad para encargarla? ✨`;
+        CatalogSystem.openWhatsApp(msg);
+    },
+
+    addToCartRecommended() {
+        if (!this.lastResult) return;
+        const item = {
+            id: 'test-' + Date.now(),
+            name: this.lastResult.title,
+            price: 25000,
+            img: this.lastResult.img || '/images/candle-placeholder.svg'
+        };
+        CartSystem.add(item);
+        if (window.Toast) {
+            Toast.success('¡Vela ideal agregada a tu pedido! ✨');
         }
     },
 
@@ -397,6 +489,7 @@ const CandleTestSystem = {
         
         const resultKey = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
         const result = this.results[resultKey];
+        this.lastResult = result;
 
         document.querySelector(`.test-step[data-step="${this.currentStep}"]`).classList.remove('active');
         const resultEl = document.getElementById('test-result');
@@ -404,7 +497,10 @@ const CandleTestSystem = {
 
         document.getElementById('result-title').textContent = result.title;
         document.getElementById('result-desc').textContent = result.desc;
-        document.getElementById('result-img').style.backgroundImage = `url('${result.img}')`;
+        const imgEl = document.getElementById('result-img');
+        if (imgEl) {
+            imgEl.style.backgroundImage = `url('${result.img}'), url('/images/candle-placeholder.svg')`;
+        }
         
         this.updateProgress();
 
@@ -416,12 +512,19 @@ const CandleTestSystem = {
                     answers: this.answers.slice()
                 }
             }));
+            window.dispatchEvent(new CustomEvent('test_result', {
+                detail: {
+                    resultKey: resultKey,
+                    resultTitle: result.title
+                }
+            }));
         } catch (e) { /* sin analytics */ }
     },
 
     restart() {
         this.currentStep = 1;
         this.answers = [];
+        this.lastResult = null;
         document.getElementById('test-result').style.display = 'none';
         this.goToStep(1);
     }
@@ -472,10 +575,10 @@ const AuthSystem = {
                 const target = user.role === 'admin' ? 'admin.html' : 'index.html';
                 window.location.href = (next === 'admin.html' && user.role === 'admin') ? next : target;
             } else {
-                alert('Credenciales incorrectas');
+                if (window.Toast) Toast.error('Credenciales incorrectas');
             }
         } catch (err) {
-            alert('Error de conexión con el servidor');
+            if (window.Toast) Toast.error('Error de conexión con el servidor');
         }
     },
 
@@ -500,10 +603,11 @@ const AuthSystem = {
                 window.location.href = 'index.html';
             } else {
                 const data = await res.json();
-                alert(data.error || 'Error al registrarse');
+                const msg = data.error || 'Error al registrarse';
+                if (window.Toast) Toast.error(msg);
             }
         } catch (err) {
-            alert('Error de conexión con el servidor');
+            if (window.Toast) Toast.error('Error de conexión con el servidor');
         }
     }
 };
@@ -548,41 +652,59 @@ const AnimationSystem = {
     }
 };
 
-// Theme System
+// Theme System (UX-3, Zero-flash & Apple HIG)
 const ThemeSystem = {
     init() {
         const toggleBtn = document.getElementById('theme-toggle');
         const iconPath = document.querySelector('#moon-icon path');
-        const currentTheme = localStorage.getItem('theme') || 'light';
 
-        const setDark = () => {
-            document.body.setAttribute('data-theme', 'dark');
-            if (iconPath) iconPath.setAttribute('d', 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z');
+        const getPreferredTheme = () => {
+            const saved = localStorage.getItem('theme');
+            if (saved) return saved;
+            const docTheme = document.documentElement.getAttribute('data-theme');
+            if (docTheme) return docTheme;
+            return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
         };
 
-        const setLight = () => {
-            document.body.removeAttribute('data-theme');
-            if (iconPath) iconPath.setAttribute('d', 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z');
+        const applyTheme = (theme) => {
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                if (document.body) document.body.setAttribute('data-theme', 'dark');
+                if (toggleBtn) {
+                    toggleBtn.setAttribute('aria-pressed', 'true');
+                    toggleBtn.setAttribute('title', 'Cambiar a modo claro');
+                }
+                if (iconPath) {
+                    iconPath.setAttribute('d', 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z');
+                }
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                if (document.body) document.body.removeAttribute('data-theme');
+                if (toggleBtn) {
+                    toggleBtn.setAttribute('aria-pressed', 'false');
+                    toggleBtn.setAttribute('title', 'Cambiar a modo oscuro');
+                }
+                if (iconPath) {
+                    iconPath.setAttribute('d', 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z');
+                }
+            }
         };
 
-        if (currentTheme === 'dark') setDark();
+        const currentTheme = getPreferredTheme();
+        applyTheme(currentTheme);
 
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
-                const isDark = document.body.getAttribute('data-theme') === 'dark';
-                if (isDark) {
-                    setLight();
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    setDark();
-                    localStorage.setItem('theme', 'dark');
-                }
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const nextTheme = isDark ? 'light' : 'dark';
+                applyTheme(nextTheme);
+                try { localStorage.setItem('theme', nextTheme); } catch (e) {}
             });
         }
     }
 };
 
-// Sidebar System
+// Sidebar System (UX-4, A11y & Apple HIG)
 const SidebarSystem = {
     init() {
         const hamburger = document.getElementById('hamburger-btn');
@@ -591,22 +713,44 @@ const SidebarSystem = {
         const closeBtn = document.getElementById('close-sidebar');
         const links = document.querySelectorAll('.sidebar-nav a');
 
-        if (!hamburger || !sidebar || !overlay) return;
+        if (!hamburger || !sidebar) return;
+
+        const openMenu = () => {
+            sidebar.classList.add('open');
+            if (overlay) overlay.classList.add('active');
+            hamburger.setAttribute('aria-expanded', 'true');
+            hamburger.setAttribute('aria-label', 'Cerrar menú de navegación');
+            document.body.style.overflow = 'hidden';
+        };
+
+        const closeMenu = () => {
+            sidebar.classList.remove('open');
+            if (overlay) overlay.classList.remove('active');
+            hamburger.setAttribute('aria-expanded', 'false');
+            hamburger.setAttribute('aria-label', 'Abrir menú de navegación');
+            document.body.style.overflow = '';
+        };
 
         const toggleMenu = () => {
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('active');
-            document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+            if (sidebar.classList.contains('open')) closeMenu();
+            else openMenu();
         };
 
         hamburger.addEventListener('click', toggleMenu);
-        overlay.addEventListener('click', toggleMenu);
-        if (closeBtn) closeBtn.addEventListener('click', toggleMenu);
+        if (overlay) overlay.addEventListener('click', closeMenu);
+        if (closeBtn) closeBtn.addEventListener('click', closeMenu);
 
         links.forEach(link => {
             link.addEventListener('click', () => {
-                if (sidebar.classList.contains('open')) toggleMenu();
+                if (sidebar.classList.contains('open')) closeMenu();
             });
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                closeMenu();
+                hamburger.focus();
+            }
         });
     }
 };
@@ -883,20 +1027,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     AnimationSystem.init();
     SocialFeedSystem.init();
 
-    // Cerrar modal de detalle de producto
+    // Modal accesible de detalle de producto (UX-2)
     const m = document.getElementById('product-detail-modal');
+    const closeBtn = document.getElementById('close-detail-modal');
     if (m) {
         m.addEventListener('click', e => {
-            if (e.target === m || e.target.id === 'close-detail-modal') m.classList.remove('active');
+            if (e.target === m) closeProductDetail();
+        });
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => closeProductDetail());
+        }
+        // Focus trap en modal
+        m.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                const focusables = m.querySelectorAll('button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if (focusables.length === 0) return;
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
         });
     }
+
+    // Tecla Escape para modales y cajón
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('product-detail-modal');
+            if (modal && modal.classList.contains('active')) {
+                closeProductDetail();
+            }
+        }
+    });
 });
 
-// --- Vista Detallada de Producto ---
-function openProductDetail(product) {
+let lastProductOpener = null;
+
+function closeProductDetail() {
+    const modal = document.getElementById('product-detail-modal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (lastProductOpener && typeof lastProductOpener.focus === 'function') {
+        lastProductOpener.focus();
+    }
+}
+
+// --- Vista Detallada de Producto (UX-2 & Apple HIG) ---
+function openProductDetail(product, triggerElement) {
     const modal = document.getElementById('product-detail-modal');
     const content = document.getElementById('product-detail-inner');
     if (!modal || !content) return;
+
+    lastProductOpener = triggerElement || document.activeElement;
 
     const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
     const price = Number(product.price) || 0;
@@ -908,10 +1097,14 @@ function openProductDetail(product) {
     const img = document.createElement('img');
     img.src = safeImageUrl(product.img);
     img.alt = String(product.name || 'Vela');
+    img.width = 400;
+    img.height = 300;
     img.loading = 'lazy';
+    img.onerror = () => { img.onerror = null; img.src = '/images/candle-placeholder.svg'; };
     content.appendChild(img);
 
     const title = document.createElement('h2');
+    title.id = 'product-detail-modal-title';
     title.textContent = String(product.name || '');
     content.appendChild(title);
 
@@ -959,28 +1152,50 @@ function openProductDetail(product) {
     }
     content.appendChild(priceRow);
 
+    const buttonGroup = document.createElement('div');
+    buttonGroup.style.display = 'flex';
+    buttonGroup.style.flexDirection = 'column';
+    buttonGroup.style.gap = '0.75rem';
+    buttonGroup.style.marginTop = '1.5rem';
+
     const button = document.createElement('button');
+    button.type = 'button';
     button.className = 'btn primary-btn';
     button.textContent = 'Pedir por WhatsApp';
-    button.addEventListener('click', () => CatalogSystem.buyProduct(product));
-    content.appendChild(button);
+    button.addEventListener('click', () => {
+        CatalogSystem.buyProduct(product);
+        closeProductDetail();
+    });
+    buttonGroup.appendChild(button);
 
     const addToCartBtn = document.createElement('button');
     addToCartBtn.type = 'button';
     addToCartBtn.className = 'btn text-btn';
     addToCartBtn.textContent = 'Añadir al carrito';
-    addToCartBtn.addEventListener('click', () => CartSystem.add(product));
-    content.appendChild(addToCartBtn);
+    addToCartBtn.addEventListener('click', () => {
+        CartSystem.add(product);
+        closeProductDetail();
+    });
+    buttonGroup.appendChild(addToCartBtn);
 
     if (product.slug) {
         const permalink = document.createElement('a');
         permalink.className = 'btn text-btn';
         permalink.href = '/producto/' + encodeURIComponent(product.slug);
         permalink.textContent = 'Ver ficha completa';
-        content.appendChild(permalink);
+        buttonGroup.appendChild(permalink);
     }
+    content.appendChild(buttonGroup);
 
     modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    // Foco accesible al botón de cerrar o al primer botón de acción
+    const modalCloseBtn = document.getElementById('close-detail-modal');
+    if (modalCloseBtn) {
+        setTimeout(() => modalCloseBtn.focus(), 60);
+    }
 
     try {
         window.dispatchEvent(new CustomEvent('view_item', {

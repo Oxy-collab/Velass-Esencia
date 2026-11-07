@@ -19,6 +19,8 @@ const {
     reviewSchema,
     transactionSchema,
     settingSchema,
+    rawMaterialSchema,
+    rawMaterialBulkSchema,
     monthSchema,
     idSchema,
     validateBody,
@@ -270,6 +272,20 @@ const initDb = async () => {
         await pool.query(`CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT
+        )`);
+
+        // Materias primas (inventario en base de datos)
+        await pool.query(`CREATE TABLE IF NOT EXISTS raw_materials (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            qty REAL NOT NULL DEFAULT 0,
+            unit TEXT NOT NULL DEFAULT 'unidades',
+            min_qty REAL DEFAULT 0,
+            cost REAL,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
         // Seed admin SOLO si se configuró ADMIN_EMAIL/ADMIN_PASSWORD.
@@ -667,6 +683,92 @@ app.post('/api/settings', requireAdmin, validateBody(settingSchema), async (req,
     }
 });
 
+// --- API: RAW MATERIALS (Materias primas en BD - UX-5) ---
+app.get('/api/raw-materials', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM raw_materials ORDER BY category ASC, name ASC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error obteniendo materias primas:', err);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+app.post('/api/raw-materials', requireAdmin, async (req, res) => {
+    const isBulk = Array.isArray(req.body) || (req.body && Array.isArray(req.body.materials));
+    if (isBulk) {
+        const items = Array.isArray(req.body) ? req.body : req.body.materials;
+        const parsed = rawMaterialBulkSchema.safeParse({ materials: items });
+        if (!parsed.success) {
+            return res.status(400).json({ error: 'Datos inválidos en lote', details: parsed.error.issues });
+        }
+        const created = [];
+        try {
+            for (const item of parsed.data.materials) {
+                const insertRes = await pool.query(
+                    `INSERT INTO raw_materials (name, category, qty, unit, min_qty, cost, notes)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                    [item.name, item.category, item.qty, item.unit, item.min_qty, item.cost, item.notes]
+                );
+                created.push(insertRes.rows[0]);
+            }
+            return res.status(201).json({ success: true, count: created.length, materials: created });
+        } catch (err) {
+            console.error('Error insertando lote de materias primas:', err);
+            return res.status(500).json({ error: 'Error interno' });
+        }
+    }
+
+    const parsed = rawMaterialSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.issues });
+    }
+    const item = parsed.data;
+    try {
+        const insertRes = await pool.query(
+            `INSERT INTO raw_materials (name, category, qty, unit, min_qty, cost, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [item.name, item.category, item.qty, item.unit, item.min_qty, item.cost, item.notes]
+        );
+        res.status(201).json(insertRes.rows[0]);
+    } catch (err) {
+        console.error('Error creando materia prima:', err);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+app.put('/api/raw-materials/:id', requireAdmin, validateParam('id', idSchema), validateBody(rawMaterialSchema), async (req, res) => {
+    const item = req.body;
+    try {
+        const updateRes = await pool.query(
+            `UPDATE raw_materials
+             SET name=$1, category=$2, qty=$3, unit=$4, min_qty=$5, cost=$6, notes=$7, updated_at=CURRENT_TIMESTAMP
+             WHERE id=$8 RETURNING *`,
+            [item.name, item.category, item.qty, item.unit, item.min_qty, item.cost, item.notes, req.params.id]
+        );
+        if (updateRes.rowCount === 0) {
+            return res.status(404).json({ error: 'Materia prima no encontrada' });
+        }
+        res.json(updateRes.rows[0]);
+    } catch (err) {
+        console.error('Error actualizando materia prima:', err);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+app.delete('/api/raw-materials/:id', requireAdmin, validateParam('id', idSchema), async (req, res) => {
+    try {
+        const delRes = await pool.query('DELETE FROM raw_materials WHERE id=$1', [req.params.id]);
+        if (delRes.rowCount === 0) {
+            return res.status(404).json({ error: 'Materia prima no encontrada' });
+        }
+        res.json({ success: true, message: 'Materia prima eliminada' });
+    } catch (err) {
+        console.error('Error eliminando materia prima:', err);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
 // --- PÁGINAS PÚBLICAS SEO ---
 const publicBaseUrl = (req) => process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
@@ -717,10 +819,15 @@ app.get('/producto/:slug', async (req, res, next) => {
 app.get(['/', '/index.html'], async (req, res, next) => {
     try {
         const raw = await fs.promises.readFile(path.join(__dirname, 'public', 'index.html'), 'utf8');
-        const result = await pool.query('SELECT name, slug FROM products WHERE slug IS NOT NULL ORDER BY category ASC, name ASC');
-        const links = result.rows
-            .map((p) => `<li><a href="/producto/${encodeURIComponent(p.slug)}">${escapeHtml(p.name)}</a></li>`)
-            .join('');
+        let links = '';
+        try {
+            const result = await pool.query('SELECT name, slug FROM products WHERE slug IS NOT NULL ORDER BY category ASC, name ASC');
+            links = result.rows
+                .map((p) => `<li><a href="/producto/${encodeURIComponent(p.slug)}">${escapeHtml(p.name)}</a></li>`)
+                .join('');
+        } catch (dbErr) {
+            console.warn('Advertencia: no se pudieron cargar enlaces de producto para la portada:', dbErr.message);
+        }
         let html = raw.replace('<!--CATALOG_SEO-->', links);
         if (process.env.PUBLIC_URL && process.env.PUBLIC_URL !== 'https://velass-esencia.onrender.com') {
             html = html.replace(/https:\/\/velass-esencia\.onrender\.com/g, process.env.PUBLIC_URL);
@@ -795,7 +902,11 @@ app.use((err, req, res, next) => {
 
 // --- Run server ---
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;
 

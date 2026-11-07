@@ -103,6 +103,43 @@ Las **reseñas** (autor, valoración 1–5 y comentario) se gestionan desde el m
   - Fallback automático en fichas de producto al `og-image.jpg` general si el producto no dispone de fotografía propia.
 - **Logotipo vectorial local**: servido directamente desde `/images/logo.svg` (con fallback `/images/logo.png`), eliminando dependencias de CDNs externos caídos.
 
+## UX, accesibilidad y rendimiento (Fase 2)
+
+- **UX-1 · Imágenes propias y optimizadas**:
+  - Fallback vectorial propio `public/images/candle-placeholder.svg` (diseño de marca, libre de dependencias externas como `placehold.co`).
+  - Atributos `loading="lazy"`, `width="400"`, `height="300"`, `alt` descriptivo y manejadores de error `onerror` automáticos para eliminar el CLS (Cumulative Layout Shift = 0).
+- **UX-2 · Modal accesible**:
+  - Modal de producto con `role="dialog"`, `aria-modal="true"`, `aria-labelledby="product-detail-modal-title"`.
+  - Focus trap con teclado (`Tab` y `Shift+Tab` confinados al diálogo activo).
+  - Cierre con tecla `Escape` y clic fuera.
+  - Restauración automática del foco al botón o tarjeta que abrió el modal al cerrarse.
+  - Vista adaptativa en móvil: `max-height: 90vh; overflow-y: auto;` y botón de cierre `.modal-close-btn` con tamaño táctil de 40×40px.
+- **UX-3 · Tema sin flash (Zero-flash theme)**:
+  - Script parser-blocking `/js/theme-init.js` en `<head>` de todas las vistas (`index.html`, `login.html`, `admin.html` y fichas `/producto/:slug`), aplicando `data-theme` antes del primer paint.
+  - Detección automática del tema del sistema operativo (`prefers-color-scheme: dark`) si no hay preferencia guardada.
+  - Sincronización de iconos sol/luna y atributo `aria-pressed` en el botón de alternar tema.
+- **UX-4 · Base de accesibilidad (Apple HIG & Emil Kowalski)**:
+  - Estilos `:focus-visible` con anillos accesibles limpios (`outline: 2px solid var(--primary-color); outline-offset: 3px`).
+  - `@media (prefers-reduced-motion: reduce)`: detiene ondas del fondo líquido, animaciones shimmer y transiciones pesadas.
+  - Menú hamburguesa con `aria-expanded` y `aria-controls="sidebar-menu"`.
+  - Enlace de salto rápido `<a href="#main-content" class="skip-link">` al inicio del body.
+  - Sistema de notificaciones flotantes `Toast` (inspirado en Sonner) con animación elástica de entrada/salida, pause on hover, `role="status"` y `aria-live="polite"`, reemplazando todas las llamadas nativas a `alert()`.
+- **UX-5 · Inventario de materias primas en base de datos**:
+  - Tabla `raw_materials` en PostgreSQL/Neon con columnas `name`, `category`, `qty`, `unit`, `min_qty`, `cost`, `notes`, `created_at` y `updated_at`.
+  - API protegida con `requireAdmin`: `GET/POST /api/raw-materials`, `PUT /api/raw-materials/:id`, `DELETE /api/raw-materials/:id`.
+  - Validación de esquemas con `zod` (`rawMaterialSchema` y `rawMaterialBulkSchema`).
+  - Migración automática y transparente desde `localStorage` al iniciar el panel de administración.
+- **UX-6 · Fixes HTML/CSS y estados de carga**:
+  - Modal de detalle reubicado dentro del `<body>` (HTML 100% válido).
+  - Corrección de la errata `liquid-galss` -> `liquid-glass`.
+  - Eliminación de la regla duplicada `[data-theme="dark"] .sidebar` en `styles.css`.
+  - Skeleton loader con animación shimmer (Emil Kowalski) mientras se cargan los productos del catálogo.
+  - Estado vacío atractivo cuando no hay productos y estado de error con botón de "Reintentar".
+- **UX-7 · Test de la vela → pedido y conversión**:
+  - Resultado del test con botón primario "Pedir esta vela por WhatsApp" con mensaje prellenado específico de la vela ideal recomendada.
+  - Botón secundario para "Añadir recomendación al carrito".
+  - Disparo de eventos analíticos `test_result` y `order_intent`.
+
 ## Seguridad (estado actual)
 
 - Contraseñas con **bcrypt** (`bcryptjs`; `BCRYPT_ROUNDS` configurable, 10 por defecto). Las contraseñas antiguas en texto plano se migran a hash al arrancar el servidor (y al vuelo en el primer login).
@@ -115,7 +152,7 @@ Las **reseñas** (autor, valoración 1–5 y comentario) se gestionan desde el m
 - **Estáticos solo desde `public/`**: el resto del repo no se sirve (`server.js`, `package.json`, `lib/`, `private/`, `.git` → 404).
 - **CSP con `helmet`** (sin `unsafe-inline` en scripts), `nosniff`, `Referrer-Policy`, `frame-ancestors 'self'`, `object-src 'none'`. CORS cerrado por defecto; ampliable con `ALLOWED_ORIGINS`.
 - **Frontend sin XSS**: los datos de la BD se pintan con `textContent`/`escapeHtml`, las URLs de imagen se validan (`http`/`https`) y no hay manejadores inline (compatible con la CSP).
-- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): CSRF token con doble envío, money como `NUMERIC`, inventario de materias primas en BD.
+- Pendiente (ver `plan-de-trabajo-velass-esencia.md`): CSRF token con doble envío, money como `NUMERIC` (Fase 3).
 
 ## Estructura
 

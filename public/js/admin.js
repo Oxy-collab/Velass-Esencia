@@ -825,43 +825,117 @@ const InventorySubTabs = {
     }
 };
 
-// =================== RAW MATERIALS SYSTEM ===================
+// =================== RAW MATERIALS SYSTEM (Inventario en BD - UX-5) ===================
 const RawMaterialsSystem = {
     STORAGE_KEY: 'raw_materials',
+    materials: [],
+    loading: false,
     CAT_ICONS: { Cera: '🕯️', Esencias: '🌸', Moldes: '🔲', Colorantes: '🎨', Empaques: '📦', Mechas: '🔥', Otros: '🔧' },
 
-    load() {
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
+    async init() {
+        this.setupModal();
+        await this.checkMigration();
+        await this.load();
+        this.render();
     },
 
-    save(materials) {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(materials));
+    async checkMigration() {
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            if (!stored) return;
+            const items = JSON.parse(stored);
+            if (Array.isArray(items) && items.length > 0) {
+                const payload = items.map(m => ({
+                    name: m.name,
+                    category: m.category,
+                    qty: parseFloat(m.qty) || 0,
+                    unit: m.unit || 'unidades',
+                    min_qty: parseFloat(m.minQty || m.min_qty) || 0,
+                    cost: parseFloat(m.cost) || null,
+                    notes: m.notes || null
+                }));
+                const res = await fetch(`${API_BASE}/api/raw-materials`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    localStorage.removeItem(this.STORAGE_KEY);
+                    Toast.show('Materias primas locales migradas exitosamente a la base de datos ✨', 'success');
+                }
+            } else {
+                localStorage.removeItem(this.STORAGE_KEY);
+            }
+        } catch (e) {
+            console.error('Error migrando materias primas locales:', e);
+        }
     },
 
-    add(data) {
-        const materials = this.load();
-        const item = { id: Date.now(), ...data, updatedAt: new Date().toISOString() };
-        materials.push(item);
-        this.save(materials);
-        return item;
+    async load() {
+        this.loading = true;
+        try {
+            const res = await fetch(`${API_BASE}/api/raw-materials`);
+            if (res.ok) {
+                this.materials = await res.json();
+            } else {
+                this.materials = [];
+            }
+        } catch (err) {
+            console.error('Error cargando materias primas:', err);
+            this.materials = [];
+        } finally {
+            this.loading = false;
+        }
+        return this.materials;
     },
 
-    update(id, data) {
-        const materials = this.load().map(m =>
-            m.id === id ? { ...m, ...data, updatedAt: new Date().toISOString() } : m
-        );
-        this.save(materials);
+    async add(data) {
+        const res = await fetch(`${API_BASE}/api/raw-materials`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Error al guardar materia prima');
+        }
+        const created = await res.json();
+        this.materials.push(created);
+        return created;
     },
 
-    delete(id) {
-        this.save(this.load().filter(m => m.id !== id));
+    async update(id, data) {
+        const res = await fetch(`${API_BASE}/api/raw-materials/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Error al actualizar materia prima');
+        }
+        const updated = await res.json();
+        const idx = this.materials.findIndex(m => m.id === id);
+        if (idx !== -1) this.materials[idx] = updated;
+        return updated;
+    },
+
+    async delete(id) {
+        const res = await fetch(`${API_BASE}/api/raw-materials/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Error al eliminar materia prima');
+        }
+        this.materials = this.materials.filter(m => m.id !== id);
+        return true;
     },
 
     getStatus(qty, min) {
-        if (!min || min === 0) return { label: '✅ OK', cls: 'ok' };
-        if (qty === 0) return { label: '❌ Agotado', cls: 'agotado' };
-        if (qty <= min) return { label: '⚠️ Bajo stock', cls: 'bajo' };
+        const minNum = parseFloat(min) || 0;
+        const qtyNum = parseFloat(qty) || 0;
+        if (!minNum || minNum === 0) return { label: '✅ OK', cls: 'ok' };
+        if (qtyNum === 0) return { label: '❌ Agotado', cls: 'agotado' };
+        if (qtyNum <= minNum) return { label: '⚠️ Bajo stock', cls: 'bajo' };
         return { label: '✅ OK', cls: 'ok' };
     },
 
@@ -871,13 +945,21 @@ const RawMaterialsSystem = {
         const summaryEl = document.getElementById('materials-summary');
         if (!tbody) return;
 
-        const materials = this.load();
+        if (this.loading && this.materials.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:#999;">Cargando materias primas desde la base de datos... ⏳</td></tr>';
+            return;
+        }
+
+        const materials = this.materials;
         const fmt = n => n !== undefined && n !== '' && n !== null
             ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
             : '—';
 
         // Render alerts for low stock
-        const lowStock = materials.filter(m => m.minQty > 0 && parseFloat(m.qty) <= parseFloat(m.minQty));
+        const lowStock = materials.filter(m => {
+            const min = parseFloat(m.min_qty !== undefined ? m.min_qty : m.minQty) || 0;
+            return min > 0 && parseFloat(m.qty) <= min;
+        });
         if (alertsEl) {
             alertsEl.innerHTML = lowStock.length > 0
                 ? `<div class="materials-alert-box">
@@ -909,14 +991,15 @@ const RawMaterialsSystem = {
         }
 
         tbody.innerHTML = materials.map(m => {
-            const status = this.getStatus(parseFloat(m.qty), parseFloat(m.minQty));
+            const minVal = m.min_qty !== undefined ? m.min_qty : m.minQty;
+            const status = this.getStatus(parseFloat(m.qty), parseFloat(minVal));
             const icon = this.CAT_ICONS[m.category] || '🔧';
             return `<tr>
                 <td><strong>${icon} ${escapeHtml(m.name)}</strong></td>
                 <td>${escapeHtml(m.category)}</td>
                 <td class="mat-qty ${status.cls === 'bajo' || status.cls === 'agotado' ? 'qty-low' : ''}">${escapeHtml(m.qty)}</td>
                 <td>${escapeHtml(m.unit)}</td>
-                <td>${escapeHtml(m.minQty || '—')}</td>
+                <td>${escapeHtml(minVal || '—')}</td>
                 <td><span class="mat-status ${status.cls}">${escapeHtml(status.label)}</span></td>
                 <td style="font-size:0.85rem;color:#999;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(m.notes || '—')}</td>
                 <td>
@@ -943,27 +1026,31 @@ const RawMaterialsSystem = {
     },
 
     openEdit(id) {
-        const m = this.load().find(m => m.id === id);
+        const m = this.materials.find(m => m.id === id);
         if (!m) return;
         document.getElementById('mat-id').value = m.id;
         document.getElementById('mat-name').value = m.name;
         document.getElementById('mat-category').value = m.category;
         document.getElementById('mat-qty').value = m.qty;
         document.getElementById('mat-unit').value = m.unit;
-        document.getElementById('mat-min').value = m.minQty || '';
+        document.getElementById('mat-min').value = (m.min_qty !== undefined ? m.min_qty : m.minQty) || '';
         document.getElementById('mat-cost').value = m.cost || '';
         document.getElementById('mat-notes').value = m.notes || '';
         document.getElementById('material-modal-title').textContent = 'Editar Materia Prima';
         document.getElementById('material-modal').classList.add('active');
     },
 
-    confirmDelete(id) {
-        const m = this.load().find(m => m.id === id);
+    async confirmDelete(id) {
+        const m = this.materials.find(m => m.id === id);
         if (!m) return;
         if (confirm(`¿Eliminar "${m.name}" del inventario?`)) {
-            this.delete(id);
-            this.render();
-            Toast.show('Material eliminado');
+            try {
+                await this.delete(id);
+                this.render();
+                Toast.show('Material eliminado de la base de datos');
+            } catch (err) {
+                Toast.show(err.message || 'Error al eliminar material', 'error');
+            }
         }
     },
 
@@ -978,7 +1065,7 @@ const RawMaterialsSystem = {
         if (btnCancel) btnCancel.addEventListener('click', () => modal.classList.remove('active'));
         modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('active'); });
 
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('mat-id').value;
             const data = {
@@ -986,21 +1073,24 @@ const RawMaterialsSystem = {
                 category: document.getElementById('mat-category').value,
                 qty: parseFloat(document.getElementById('mat-qty').value) || 0,
                 unit: document.getElementById('mat-unit').value,
-                minQty: parseFloat(document.getElementById('mat-min').value) || 0,
+                min_qty: parseFloat(document.getElementById('mat-min').value) || 0,
                 cost: parseFloat(document.getElementById('mat-cost').value) || null,
                 notes: document.getElementById('mat-notes').value.trim()
             };
 
-            if (id) {
-                this.update(parseInt(id), data);
-                Toast.show(`"${data.name}" actualizado`);
-            } else {
-                this.add(data);
-                Toast.show(`"${data.name}" agregado al inventario`);
+            try {
+                if (id) {
+                    await this.update(parseInt(id), data);
+                    Toast.show(`"${data.name}" actualizado en base de datos`);
+                } else {
+                    await this.add(data);
+                    Toast.show(`"${data.name}" agregado a la base de datos`);
+                }
+                modal.classList.remove('active');
+                this.render();
+            } catch (err) {
+                Toast.show(err.message || 'Error al guardar materia prima', 'error');
             }
-
-            modal.classList.remove('active');
-            this.render();
         });
     }
 };
@@ -1015,7 +1105,7 @@ const AdminPageInit = {
         await FinanceSystem.init();
         FinanceUI.updateDashboard();
         AdminInventorySystem.init();
-        RawMaterialsSystem.setupModal();
+        await RawMaterialsSystem.init();
         await SocialMediaAdmin.init();
 
         const dateInput = document.getElementById('trans-date');
